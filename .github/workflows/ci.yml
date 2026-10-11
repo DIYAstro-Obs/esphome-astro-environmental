@@ -1,0 +1,45 @@
+name: CI
+
+# Manual only: Actions tab -> CI -> "Run workflow". Locally the same checks run with scripts/check.ps1.
+on:
+  workflow_dispatch:
+
+jobs:
+  firmware:
+    name: Compile firmware and examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ESPHome 2026.7 and newer needs Python 3.13+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ runner.os }}-${{ hashFiles('tests/requirements.txt') }}
+      - run: pip install -r tests/requirements.txt
+      - name: Dummy secrets
+        run: cp tests/ci/secrets.ci.yaml secrets.yaml
+      - run: esphome config astro-environmental.yaml
+      - run: esphome compile astro-environmental.yaml
+      # every example configuration has to build too (it replaces the shipped configuration)
+      - name: Example configurations
+        run: |
+          for example in esphome-astro-environmental/config/examples/*.yaml; do
+            echo "== $example"
+            cp "$example" esphome-astro-environmental/config/astro-environmental-config.yaml
+            esphome config astro-environmental.yaml
+            esphome compile astro-environmental.yaml
+          done
+
+  tests:
+    name: Configuration and formula tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r tests/requirements.txt
+      - run: python -m pytest -q
