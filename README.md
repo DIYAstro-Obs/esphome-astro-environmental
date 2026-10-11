@@ -177,8 +177,8 @@ ESPHome 2026.9.0 or newer is required (encrypted OTA with the key of the API). R
 ## Bundle for the ESPHome Device Builder
 
 A bundle (`astro-environmental.esphomebundle.tar.gz`) holds the whole project and can be imported in the ESPHome
-Device Builder instead of copying the files by hand. It is attached to a release; the **Bundle** workflow
-(GitHub, Actions, Bundle, Run workflow) creates it and attaches it to the latest release (or to the tag that is
+Device Builder instead of copying the files by hand. It is attached to a release; the **Build ESPHome bundle** workflow
+(GitHub, Actions, Build ESPHome bundle, Run workflow) creates it and attaches it to the latest release (or to the tag that is
 entered), and replaces an older file of the same name. The workflow only runs when you start it.
 
 - **No secrets inside.** `esphome bundle` packs the values of the secrets a configuration uses, so

@@ -1,6 +1,6 @@
-name: Bundle
+name: Build ESPHome bundle
 
-# Manual only: Actions tab -> Bundle -> "Run workflow".
+# Manual only: Actions tab -> Build ESPHome bundle -> "Run workflow".
 # Creates the ESPHome bundle of the station (for the import in the ESPHome Device Builder) and attaches it to the
 # latest release, or to the release tag that is entered. An older file of the same name is replaced.
 # Locally the same file is made with: python scripts/make_bundle.py
