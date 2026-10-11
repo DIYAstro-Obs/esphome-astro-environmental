@@ -35,3 +35,6 @@ Thumbs.db
 /.sim-build/
 __pycache__/
 .pytest_cache/
+
+# Bundle made by scripts/make_bundle.py
+/dist/
