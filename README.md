@@ -8,7 +8,7 @@ ESPHome firmware for an environment station of an astronomical observatory on an
 - **Rain**: a rain sensor module with a digital output as a `moisture` binary sensor, held against flicker.
 - **Sky / clouds**: MLX90614 infrared thermometer: sky temperature, the delta to the sensor housing and the **cloud cover in %**, mapped from the delta between two limits that you set in Home Assistant.
 - **Wind**: speed (mean of 60 s) and gust (maximum of 10 min) from a reed contact; pulses per revolution and speed per revolution are settings in Home Assistant.
-- A sensor that is not built does not exist in Home Assistant.
+- A sensor that is not built does not exist in Home Assistant: whole groups and every single sensor can be switched off, and what is calculated from a switched-off sensor is not built either.
 - WiFi, encrypted API and OTA, web interface with login, health sensors of the ESP32 and the WiFi link.
 - One flat configuration file whose wrong values stop the build with a message that names the problem.
 
@@ -17,15 +17,16 @@ ESPHome firmware for an environment station of an astronomical observatory on an
 ```
 astro-environmental.yaml                      entry point: ESP32, API, web interface, OTA and the package list
 esphome-astro-environmental/
-  station.yaml                                device name and the checks
+  station.yaml                                what is built (derived switches), the sensor packages, boot log, checks
   config/
     astro-environmental-config.yaml           the configuration (one flat list of keys)
     checks.yaml, checks/                      checks of the configuration, messages are file names (CONFIG_ERROR_...)
-    examples/                                 ready configurations (all sensors, BME280 only, rain and wind only)
+    examples/                                 ready configurations (all sensors, BME280 only, rain and wind only,
+                                              selected single sensors)
   core/boot.yaml                              device name, minimum ESPHome version
   hardware/                                   the board and its I2C bus
   network/wifi.yaml                           WiFi
-  features/                                   system monitor, WiFi monitor and the four sensors
+  features/                                   system monitor, WiFi monitor, the sensors and the calculated values
 scripts/                                      build, deploy and check scripts (PowerShell)
 tests/                                        configuration tests, formula tests, local check runner
 secrets.yaml.example                          template of the secrets
@@ -40,10 +41,16 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 | `name` | `astro-environmental` | device name (host name `<name>.local`) |
 | `log_level` | `DEBUG` | `DEBUG`, `INFO` or `WARN` |
 | `hardware` | `esp32_devkit` | board, see `esphome-astro-environmental/hardware/` |
-| `bme280` | `true` | build the BME280 (temperature, humidity, pressure, dew point) |
-| `rain` | `true` | build the rain sensor |
-| `sky` | `true` | build the MLX90614 (sky temperature, delta, cloud cover) |
-| `wind` | `true` | build the anemometer |
+| `bme280` | `true` | group: the BME280 (temperature, humidity, pressure, dew point) |
+| `rain` | `true` | group: the rain sensor (one sensor, Rain) |
+| `sky` | `true` | group: the MLX90614 (sky temperature, delta, cloud cover) |
+| `wind` | `true` | group: the anemometer (wind speed, gust) |
+| `sensor_temperature`, `sensor_humidity`, `sensor_pressure` | `true` | single sensors of the BME280 |
+| `sensor_dew_point` | `true` | calculated from temperature and humidity |
+| `sensor_sky_temperature`, `sensor_sky_ambient` | `true` | single sensors of the MLX90614 |
+| `sensor_sky_delta` | `true` | calculated from sky temperature and sensor ambient |
+| `sensor_cloud_cover` | `true` | calculated from the delta |
+| `sensor_wind_speed`, `sensor_wind_gust` | `true` | the two values of the anemometer |
 | `pin_sda`, `pin_scl` | `21`, `22` | I2C pins (BME280 and MLX90614) |
 | `i2c_frequency` | `50kHz` | slow on purpose: the sensor head is usually on a long cable |
 | `bme280_address` | `"0x76"` | `0x76` (SDO to GND) or `0x77` (SDO to VCC) |
@@ -53,9 +60,26 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 | `pin_wind` | `26` | reed contact, `none` if `wind` is false; needs a pin with a pull-up (not 34 to 39) |
 | `wind_filter` | `5ms` | debounce of the reed contact |
 
+### Switching sensors off
+
+A group (`bme280`, `rain`, `sky`, `wind`) switches its sensors off together, and every `sensor_...` key switches one sensor off. A sensor that is switched off is not reported to Home Assistant. **What is calculated from it is not built either**:
+
+| Sensor | is built when |
+|---|---|
+| Temperature, Humidity, Pressure | the group `bme280` and its own switch |
+| Dew Point | `sensor_dew_point` and Temperature and Humidity are built |
+| Rain | the group `rain` |
+| Sky Temperature, Sky Sensor Ambient | the group `sky` and its own switch |
+| Sky Temperature Delta | `sensor_sky_delta` and Sky Temperature and Sky Sensor Ambient are built |
+| Cloud Cover and its settings (Cloud Clear / Overcast Delta) | `sensor_cloud_cover` and Sky Temperature Delta are built |
+| Wind Speed, Wind Gust | the group `wind` and the own switch (each needs only the counter, not the other) |
+| Wind settings (pulses per revolution, speed per revolution) | `wind` and at least one of Wind Speed, Wind Gust |
+
+A chip without a sensor that is built is not set up at all: when no sensor on the I2C bus is built there is no I2C bus and the pins `pin_sda`, `pin_scl` may be `none`; the same holds for `pin_wind` when no wind sensor is built. The log line `Built: ...` at the start shows what is built. To only hide a value that something else needs, hide the entity in Home Assistant instead of switching it off here.
+
 ### Checks
 
-A wrong value stops the build with an error that names the problem (`CONFIG_ERROR_...` in the message), for example a pin that does not exist or is flash, two functions on one pin, an input-only pin used for I2C or for the reed contact, no sensor built, or a wrong I2C address.
+A wrong value stops the build with an error that names the problem (`CONFIG_ERROR_...` in the message), for example a pin that does not exist or is flash, two functions on one pin, an input-only pin used for I2C or for the reed contact, no sensor built, a switch that is not `true` or `false`, or a wrong I2C address.
 
 ## Wiring
 
@@ -152,7 +176,7 @@ ESPHome 2026.9.0 or newer is required (encrypted OTA with the key of the API). R
 
 `.\scripts\check.ps1` (needs WSL with a Linux distribution; started by hand) compiles the firmware and every example and runs the tests. `-TestsOnly` runs only the tests, `-FirmwareOnly` only the compile.
 
-- `tests/test_config_checks.py`: a wrong configuration fails with the named `CONFIG_ERROR_...`, a right one builds exactly the entities that are built, every example validates.
+- `tests/test_config_checks.py`: a wrong configuration fails with the named `CONFIG_ERROR_...`, a right one builds exactly the entities that are built (also for every single switch and for what is calculated from a switched-off sensor), every example validates.
 - `tests/test_formulas.py`: dew point (also against the Buck equation), cloud cover and wind speed, and that the YAML uses the same constants and expressions.
 
 ## Web Interface
