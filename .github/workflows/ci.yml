@@ -9,12 +9,12 @@ jobs:
     name: Compile firmware and examples
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # ESPHome 2026.7 and newer needs Python 3.13+
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: platformio-${{ runner.os }}-${{ hashFiles('tests/requirements.txt') }}
@@ -37,8 +37,8 @@ jobs:
     name: Configuration and formula tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: pip install -r tests/requirements.txt
