@@ -8,7 +8,7 @@ ESPHome firmware for an environment station of an astronomical observatory on an
 - **Rain**: a rain sensor module with a digital output as a `moisture` binary sensor, held against flicker.
 - **Sky / clouds**: MLX90614 infrared thermometer: sky temperature, the delta to the sensor housing and the **cloud cover in %**, mapped from the delta between two limits that you set in Home Assistant.
 - **Wind**: speed (mean of 60 s) and gust (maximum of 10 min) from a reed contact; pulses per revolution and speed per revolution are settings in Home Assistant.
-- A sensor that is not built does not exist in Home Assistant: whole groups and every single sensor can be switched off, and what is calculated from a switched-off sensor is not built either.
+- Hardware that is not fitted is switched off as a whole (`bme280`, `rain`, `sky`, `wind`): no bus access, no entities in Home Assistant and nothing calculated from it. Single values can be switched off too, and what is calculated from a switched-off value is not built either.
 - WiFi, encrypted API and OTA, web interface with login, health sensors of the ESP32 and the WiFi link.
 - One flat configuration file whose wrong values stop the build with a message that names the problem.
 
@@ -41,13 +41,13 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 | `name` | `astro-environmental` | device name (host name `<name>.local`) |
 | `log_level` | `DEBUG` | `DEBUG`, `INFO` or `WARN` |
 | `hardware` | `esp32_devkit` | board, see `esphome-astro-environmental/hardware/` |
-| `bme280` | `true` | group: the BME280 (temperature, humidity, pressure, dew point) |
-| `rain` | `true` | group: the rain sensor (one sensor, Rain) |
-| `sky` | `true` | group: the MLX90614 (sky temperature, delta, cloud cover) |
-| `wind` | `true` | group: the anemometer (wind speed, gust) |
-| `sensor_temperature`, `sensor_humidity`, `sensor_pressure` | `true` | single sensors of the BME280 |
+| `bme280` | `true` | hardware: the BME280 chip (temperature, humidity, pressure, dew point) |
+| `rain` | `true` | hardware: the rain sensor module (Rain) |
+| `sky` | `true` | hardware: the MLX90614 (sky temperature, delta, cloud cover) |
+| `wind` | `true` | hardware: the anemometer (wind speed, gust) |
+| `sensor_temperature`, `sensor_humidity`, `sensor_pressure` | `true` | single values of the BME280 |
 | `sensor_dew_point` | `true` | calculated from temperature and humidity |
-| `sensor_sky_temperature`, `sensor_sky_ambient` | `true` | single sensors of the MLX90614 |
+| `sensor_sky_temperature`, `sensor_sky_ambient` | `true` | single values of the MLX90614 |
 | `sensor_sky_delta` | `true` | calculated from sky temperature and sensor ambient |
 | `sensor_cloud_cover` | `true` | calculated from the delta |
 | `sensor_wind_speed`, `sensor_wind_gust` | `true` | the two values of the anemometer |
@@ -60,9 +60,11 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 | `pin_wind` | `26` | reed contact, `none` if `wind` is false; needs a pin with a pull-up (not 34 to 39) |
 | `wind_filter` | `5ms` | debounce of the reed contact |
 
-### Switching sensors off
+### Switching hardware and values off
 
-A group (`bme280`, `rain`, `sky`, `wind`) switches its sensors off together, and every `sensor_...` key switches one sensor off. A sensor that is switched off is not reported to Home Assistant. **What is calculated from it is not built either**:
+**Hardware you do not have or do not need:** set its switch (`bme280`, `rain`, `sky`, `wind`) to `false`. Nothing of it is built: its values, the values calculated from it (the dew point from the BME280, the cloud cover from the infrared sensor) and its settings do not exist, and its pins may be `none`. This is the usual case, and the example configurations show it.
+
+**Single values** (optional): every `sensor_...` key switches one value of fitted hardware off. A value that is switched off is not reported to Home Assistant. **What is calculated from it is not built either**:
 
 | Sensor | is built when |
 |---|---|

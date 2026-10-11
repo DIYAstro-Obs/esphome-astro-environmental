@@ -10,13 +10,13 @@ name: astro-environmental
 log_level: INFO
 hardware: esp32_devkit
 
-# --- groups ---
+# --- hardware ---
 bme280: false
 rain: true
 sky: false
 wind: true
 
-# --- single sensors ---
+# --- single values (optional) ---
 sensor_temperature: true
 sensor_humidity: true
 sensor_pressure: true

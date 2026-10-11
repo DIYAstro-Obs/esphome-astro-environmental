@@ -5,8 +5,9 @@
 # It is one flat list of keys; every key has to be present. Wrong values stop the build with a
 # message that names the problem (esphome-astro-environmental/config/checks.yaml).
 #
-# A sensor that is not built (false) does not exist in Home Assistant. Calibration values (wind factor,
-# cloud limits) are not set here but in Home Assistant.
+# Hardware that is not fitted (false) is not built at all: no bus access, no entities in Home Assistant, and
+# nothing that is calculated from it. Calibration values (wind factor, cloud limits) are not set here but in
+# Home Assistant.
 # =========================================================
 
 # --- device ---
@@ -14,16 +15,16 @@ name: astro-environmental
 log_level: DEBUG              # DEBUG | INFO | WARN (WARN for production)
 hardware: esp32_devkit        # board: esphome-astro-environmental/hardware/hw_<hardware>.yaml
 
-# --- groups: true = built, false = not built ---
-bme280: true                  # BME280: temperature, humidity, pressure and the dew point calculated from them
-rain: true                    # rain sensor module with a digital output (one sensor: Rain)
+# --- hardware: true = fitted and built, false = not fitted (nothing of it is built) ---
+bme280: true                  # BME280 chip: temperature, humidity, pressure and the dew point calculated from them
+rain: true                    # rain sensor module with a digital output (one value: Rain)
 sky: true                     # MLX90614 infrared thermometer: sky temperature, delta, cloud cover
 wind: true                    # anemometer with a reed contact (pulse counting)
 
-# --- single sensors: built when their group is true and the switch is true ---
-# A sensor that is switched off is not reported to Home Assistant, and everything that is calculated from it is not
+# --- single values (optional): built when their hardware above is true and the switch is true ---
+# A value that is switched off is not reported to Home Assistant, and everything that is calculated from it is not
 # built either: Dew Point needs Temperature and Humidity, Sky Temperature Delta needs Sky Temperature and Sky Sensor
-# Ambient, Cloud Cover needs Sky Temperature Delta. A group whose sensors are all off is not built at all.
+# Ambient, Cloud Cover needs Sky Temperature Delta. Hardware whose values are all off is not built at all.
 sensor_temperature: true      # BME280
 sensor_humidity: true         # BME280
 sensor_pressure: true         # BME280
