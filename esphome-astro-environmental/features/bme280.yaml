@@ -1,0 +1,53 @@
+# =========================================================
+# FEATURE: BME280 - temperature, humidity, pressure and the dew point
+#
+# Requires the I2C bus (bus_a) of esphome-astro-environmental/hardware/hw_<hardware>_i2c.yaml.
+# The pressure is the station pressure (not reduced to sea level), which is what ASCOM expects.
+# =========================================================
+
+sensor:
+  - platform: bme280_i2c
+    i2c_id: bus_a
+    address: ${bme280_address}
+    update_interval: 30s
+    iir_filter: 4x
+    temperature:
+      name: "Temperature"
+      id: sensor_temperature
+      oversampling: 4x
+      accuracy_decimals: 1
+    pressure:
+      name: "Pressure"
+      id: sensor_pressure
+      oversampling: 4x
+      accuracy_decimals: 1
+    humidity:
+      name: "Humidity"
+      id: sensor_humidity
+      oversampling: 4x
+      accuracy_decimals: 1
+      # The BME280 publishes temperature first and humidity last, so both are fresh here.
+      # Dew point: Magnus formula with the constants of Sonntag (1990), valid from -45 to +60 degC:
+      #   gamma = ln(RH / 100) + 17.62 * T / (243.12 + T)
+      #   Td    = 243.12 * gamma / (17.62 - gamma)
+      on_value:
+        then:
+          - lambda: |-
+              const float t = id(sensor_temperature).state;
+              const float rh = x;
+              if (std::isnan(t) || std::isnan(rh) || rh <= 0.0f) {
+                id(sensor_dew_point).publish_state(NAN);
+                return;
+              }
+              const float gamma = logf(rh / 100.0f) + 17.62f * t / (243.12f + t);
+              id(sensor_dew_point).publish_state(243.12f * gamma / (17.62f - gamma));
+
+  # Calculated by the on_value of the humidity above (no lambda and no update interval of its own)
+  - platform: template
+    name: "Dew Point"
+    id: sensor_dew_point
+    device_class: temperature
+    state_class: measurement
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: never

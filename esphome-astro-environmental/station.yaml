@@ -1,0 +1,15 @@
+# =========================================================
+# STATION CORE: everything that does not depend on a sensor
+#
+# Included by the entry file (astro-environmental.yaml). What is built is decided by
+# astro-environmental-config.yaml; the sensors are the packages in features/.
+# (paths in a package file are relative to this file)
+# =========================================================
+# (ESPHome reports the failing package that comes LAST in a list first: the checks are at the end, so a wrong value
+# in astro-environmental-config.yaml is named by a check and not by a follow-up error such as a missing file.)
+packages:
+  # Device name and minimum ESPHome version
+  boot: !include core/boot.yaml
+
+  # --- checks: wrong values in astro-environmental-config.yaml stop here with a message that names the problem ---
+  checks: !include config/checks.yaml

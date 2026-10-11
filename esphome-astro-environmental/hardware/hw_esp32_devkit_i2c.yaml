@@ -1,0 +1,10 @@
+# =========================================================
+# I2C BUS of the ESP32 DevKit (BME280 and MLX90614)
+# Pins and speed come from astro-environmental-config.yaml.
+# =========================================================
+i2c:
+  id: bus_a
+  sda: ${pin_sda}
+  scl: ${pin_scl}
+  frequency: ${i2c_frequency}
+  scan: false

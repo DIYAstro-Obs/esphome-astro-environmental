@@ -1,0 +1,100 @@
+# =========================================================
+# FEATURE: WIND (anemometer with a reed contact, pulse counting)
+#
+# Every closing of the reed contact is a pulse. The number of pulses per revolution and the speed of one
+# revolution per second are settings in Home Assistant, so a different anemometer or a calibration
+# needs no new firmware:
+#   revolutions per minute = pulses per minute / pulses per revolution
+#   speed (km/h)           = revolutions per second * "Wind Speed per Revolution per Second"
+# The defaults (1 pulse per revolution, 2.4 km/h per revolution per second) are the usual values of the
+# cheap Misol / Froggit / Ecowitt type anemometers.
+#
+# Wind Speed  mean of the last 60 s (a value every 15 s)
+# Wind Gust   maximum of the 3 s values of the last 10 min (a value every 15 s)
+# =========================================================
+
+number:
+  - platform: template
+    name: "Wind Pulses per Revolution"
+    id: cfg_wind_pulses_per_rev
+    icon: "mdi:rotate-right"
+    entity_category: config
+    mode: box
+    min_value: 1
+    max_value: 20
+    step: 1
+    initial_value: 1
+    restore_value: true
+    optimistic: true
+
+  - platform: template
+    name: "Wind Speed per Revolution per Second"
+    id: cfg_wind_kmh_per_rps
+    icon: "mdi:speedometer"
+    entity_category: config
+    unit_of_measurement: "km/h"
+    mode: box
+    min_value: 0.1
+    max_value: 20
+    step: 0.01
+    initial_value: 2.4
+    restore_value: true
+    optimistic: true
+
+sensor:
+  # Pulses per minute. After 10 s without a pulse the rate is 0.
+  - platform: pulse_meter
+    id: wind_pulse_rate
+    internal: true
+    pin:
+      number: ${pin_wind}
+      mode: INPUT_PULLUP
+    internal_filter: ${wind_filter}
+    timeout: 10s
+
+  # The speed every 3 s (not shown): the base of the mean and of the gust
+  - platform: template
+    id: wind_speed_3s
+    internal: true
+    unit_of_measurement: "km/h"
+    update_interval: 3s
+    lambda: |-
+      const float rate = id(wind_pulse_rate).state;  // pulses per minute
+      const float per_revolution = id(cfg_wind_pulses_per_rev).state;
+      const float kmh_per_rps = id(cfg_wind_kmh_per_rps).state;
+      if (std::isnan(rate) || std::isnan(per_revolution) || std::isnan(kmh_per_rps) || per_revolution < 1.0f) {
+        return NAN;
+      }
+      return rate / per_revolution / 60.0f * kmh_per_rps;
+
+  - platform: copy
+    source_id: wind_speed_3s
+    name: "Wind Speed"
+    id: sensor_wind_speed
+    icon: "mdi:weather-windy"
+    device_class: wind_speed
+    state_class: measurement
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    filters:
+      # 20 values of 3 s = 60 s, a value every 5 values (15 s)
+      - sliding_window_moving_average:
+          window_size: 20
+          send_every: 5
+          send_first_at: 1
+
+  - platform: copy
+    source_id: wind_speed_3s
+    name: "Wind Gust"
+    id: sensor_wind_gust
+    icon: "mdi:weather-windy-variant"
+    device_class: wind_speed
+    state_class: measurement
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    filters:
+      # 200 values of 3 s = 10 min, a value every 5 values (15 s)
+      - max:
+          window_size: 200
+          send_every: 5
+          send_first_at: 1

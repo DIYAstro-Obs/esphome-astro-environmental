@@ -1,0 +1,34 @@
+# =========================================================
+# ASTRO-ENVIRONMENTAL CONFIGURATION
+#
+# Edit this file, then flash the device again (ESPHome dashboard: Install).
+# It is one flat list of keys; every key has to be present. Wrong values stop the build with a
+# message that names the problem (esphome-astro-environmental/config/checks.yaml).
+#
+# A sensor that is not built (false) does not exist in Home Assistant. Calibration values (wind factor,
+# cloud limits) are not set here but in Home Assistant.
+# =========================================================
+
+# --- device ---
+name: astro-environmental
+log_level: DEBUG              # DEBUG | INFO | WARN (WARN for production)
+hardware: esp32_devkit        # board: esphome-astro-environmental/hardware/hw_<hardware>.yaml
+
+# --- sensors: true = built, false = not built ---
+bme280: true                  # BME280: temperature, humidity, pressure and the dew point calculated from them
+rain: true                    # rain sensor module with a digital output
+sky: true                     # MLX90614 infrared thermometer: sky temperature, delta, cloud cover
+wind: true                    # anemometer with a reed contact (pulse counting)
+
+# --- I2C bus (BME280 and MLX90614) ---
+pin_sda: 21                   # GPIO number
+pin_scl: 22                   # GPIO number
+i2c_frequency: 50kHz          # slow on purpose: the sensor head is usually on a long cable
+bme280_address: "0x76"        # 0x76 (SDO to GND) | 0x77 (SDO to VCC)
+mlx90614_address: "0x5A"      # factory default of the MLX90614
+
+# --- inputs ---
+pin_rain: 25                  # GPIO number, `none` if rain is false
+rain_inverted: true           # true: the module pulls its output LOW when wet (most modules)
+pin_wind: 26                  # GPIO number, `none` if wind is false. Needs a pin with a pull-up (not 34..39)
+wind_filter: 5ms              # debounce of the reed contact (shorter than the fastest revolution)

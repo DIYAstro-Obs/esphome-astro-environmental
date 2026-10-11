@@ -1,0 +1,21 @@
+# =========================================================
+# FEATURE: RAIN SENSOR (module with a digital output)
+#
+# `on` = wet. rain_inverted: true is for the usual modules whose output goes LOW when wet.
+# The filters hold the state against flicker: a drop has to stay 2 s to count, and the sensor stays wet for
+# 60 s after the last drop (a drying sensor plate flickers while it dries).
+# =========================================================
+
+binary_sensor:
+  - platform: gpio
+    name: "Rain"
+    id: sensor_rain
+    icon: "mdi:weather-rainy"
+    device_class: moisture
+    pin:
+      number: ${pin_rain}
+      mode: INPUT
+      inverted: ${rain_inverted}
+    filters:
+      - delayed_on: 2s
+      - delayed_off: 60s

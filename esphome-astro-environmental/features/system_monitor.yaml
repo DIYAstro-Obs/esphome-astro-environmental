@@ -1,0 +1,62 @@
+# =========================================================
+# FEATURE: SYSTEM MONITOR (Board-agnostic)
+# Provides ESP32 health sensors for Home Assistant.
+# Compatible with all boards (Ethernet and WiFi).
+#
+# Includes: Free Heap, Min Free Heap, Uptime, Reset Reason
+# For WiFi-specific sensors (RSSI, IP), also include:
+#   esphome-astro-environmental/features/system_monitor_wifi.yaml
+# =========================================================
+
+sensor:
+  # Free heap RAM in bytes
+  - platform: template
+    name: "Free Heap"
+    id: sensor_free_heap
+    icon: "mdi:memory"
+    unit_of_measurement: "B"
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: 'return esp_get_free_heap_size();'
+
+  # Minimum free heap since boot — indicates worst-case memory pressure
+  - platform: template
+    name: "Min Free Heap"
+    id: sensor_min_free_heap
+    icon: "mdi:memory"
+    unit_of_measurement: "B"
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: 'return esp_get_minimum_free_heap_size();'
+
+  # Uptime in seconds
+  - platform: uptime
+    name: "Uptime"
+    id: sensor_uptime
+    icon: "mdi:clock-outline"
+    entity_category: diagnostic
+    update_interval: 60s
+
+text_sensor:
+  # Reset/restart reason (power-on, watchdog, software reset, etc.)
+  - platform: template
+    name: "Reset Reason"
+    id: sensor_reset_reason
+    icon: "mdi:restart"
+    entity_category: diagnostic
+    lambda: |-
+      esp_reset_reason_t reason = esp_reset_reason();
+      switch (reason) {
+        case ESP_RST_POWERON:   return {"Power On"};
+        case ESP_RST_EXT:       return {"External Reset"};
+        case ESP_RST_SW:        return {"Software Reset"};
+        case ESP_RST_PANIC:     return {"Panic/Crash"};
+        case ESP_RST_INT_WDT:   return {"Interrupt Watchdog"};
+        case ESP_RST_TASK_WDT:  return {"Task Watchdog"};
+        case ESP_RST_WDT:       return {"Watchdog"};
+        case ESP_RST_DEEPSLEEP: return {"Deep Sleep"};
+        case ESP_RST_BROWNOUT:  return {"Brownout"};
+        case ESP_RST_SDIO:      return {"SDIO"};
+        default:                return {"Unknown"};
+      }
+    update_interval: never

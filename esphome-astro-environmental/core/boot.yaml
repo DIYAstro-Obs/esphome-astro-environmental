@@ -1,0 +1,7 @@
+# =========================================================
+# BOOT: device name and the minimum ESPHome version
+# =========================================================
+esphome:
+  name: ${name}
+  # Encrypted OTA (ota: encryption) needs ESPHome 2026.9.0 or newer
+  min_version: "2026.9.0"

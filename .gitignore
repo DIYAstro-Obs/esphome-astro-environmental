@@ -1,0 +1,37 @@
+# Gitignore settings for ESPHome
+# ============================================================
+
+# ESPHome Build Artefakte
+/.esphome/
+/.config/
+/.pio/
+*.bin
+*.elf
+*.partitions.bin
+*.ota.bin
+
+# Secrets (NIEMALS committen!)
+/secrets.yaml
+secrets.yaml
+**/deployconf.secrets
+**/*.secrets
+
+# Memory Bank und interne Planungsdokumente (nicht veröffentlichen)
+/memory-bank
+/plans
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Simulation tests
+/.sim-build/
+__pycache__/
+.pytest_cache/

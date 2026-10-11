@@ -1,0 +1,18 @@
+# =========================================================
+# ESP32 DEVKIT HARDWARE DEFINITION (any ESP32 DevKit with the ESP32-WROOM-32 module, board esp32dev)
+# WiFi only. The sensors are wired to the pins set in astro-environmental-config.yaml.
+# =========================================================
+
+# --- 1. NETWORK INTERFACE ---
+# WiFi: esphome-astro-environmental/network/wifi.yaml
+
+# --- 2. I2C BUS ---
+# hw_esp32_devkit_i2c.yaml (only included when the BME280 or the MLX90614 is built).
+
+# =========================================================
+# NOTES:
+# - Usable GPIOs: 0..5, 12..19, 21..23, 25..27, 32..39. GPIO6..11 are the flash.
+# - GPIO34..39 can only read and have no pull-up: not usable for SDA/SCL and not for the reed contact.
+# - Avoid the boot pins GPIO0, 2, 5, 12 and 15 for sensors that can pull a pin during reset.
+# - The default pins (SDA 21, SCL 22, rain 25, wind 26) are free on every ESP32 DevKit.
+# =========================================================

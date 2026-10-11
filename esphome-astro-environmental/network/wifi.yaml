@@ -1,0 +1,17 @@
+# =========================================================
+# NETWORK: WiFi
+#
+# Included by astro-environmental.yaml together with
+# esphome-astro-environmental/features/system_monitor_wifi.yaml (RSSI, IP address, SSID, BSSID).
+# =========================================================
+#
+# Default: DHCP. For a fixed address either reserve one in your router
+# (by MAC address) or enable manual_ip below and add static_ip, gateway
+# and subnet to your secrets.yaml.
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # manual_ip:
+  #   static_ip: !secret static_ip
+  #   gateway: !secret gateway
+  #   subnet: !secret subnet

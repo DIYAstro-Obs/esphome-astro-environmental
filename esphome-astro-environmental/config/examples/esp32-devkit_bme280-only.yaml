@@ -1,0 +1,30 @@
+# =========================================================
+# EXAMPLE: only the BME280 (temperature, humidity, pressure, dew point)
+#
+# The other sensors are not built: they do not exist in Home Assistant, and their pins are `none`.
+# Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
+# =========================================================
+
+# --- device ---
+name: astro-environmental
+log_level: INFO
+hardware: esp32_devkit
+
+# --- sensors ---
+bme280: true
+rain: false
+sky: false
+wind: false
+
+# --- I2C bus ---
+pin_sda: 21
+pin_scl: 22
+i2c_frequency: 100kHz
+bme280_address: "0x76"
+mlx90614_address: "0x5A"
+
+# --- inputs ---
+pin_rain: none
+rain_inverted: true
+pin_wind: none
+wind_filter: 5ms

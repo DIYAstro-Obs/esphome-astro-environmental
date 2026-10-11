@@ -1,0 +1,42 @@
+# Checks of astro-environmental-config.yaml. A wrong value includes a file that does not exist; its name tells what is
+# wrong ("Error including file ... CONFIG_ERROR_...") when ESPHome validates or compiles the configuration.
+# (paths in a package file are relative to this file)
+substitutions:
+  # the boards this configuration knows
+  hw_known: ${ hardware in ['esp32_devkit'] }
+
+  # GPIOs of an ESP32 DevKit that can be used: GPIO6..11 are the flash, 20/24/28..31 do not exist
+  gpio_usable: ${ range(0, 40) | reject('in', [6, 7, 8, 9, 10, 11, 20, 24, 28, 29, 30, 31]) | list }
+  # GPIO34..39 can only read: no pull-up, no output (not usable as SDA/SCL, and the reed contact needs a pull-up)
+  gpio_input_only: ${ [34, 35, 36, 37, 38, 39] }
+
+  # what is built, and the pins that are used for it
+  i2c_used: ${ bme280 or sky }
+  sensors_built: ${ [bme280, rain, sky, wind] | select | list | length }
+  pins_used: >-
+    ${ ([pin_sda, pin_scl] if i2c_used else [])
+       + ([pin_rain] if rain else [])
+       + ([pin_wind] if wind else []) }
+
+# ESPHome reports the check that comes LAST in this list first, so the basic values (board, log level, ...) are
+# at the end: a typo there is reported on its own, not as a follow-up error of the checks above it.
+packages:
+  # --- wiring: numbers, duplicates, pins that cannot do the job ---
+  check_wind_pull_up: !include checks/${'ok' if not wind or pin_wind not in gpio_input_only else 'CONFIG_ERROR_pin_wind_needs_a_pull_up_use_a_gpio_other_than_34_to_39'}.yaml
+  check_i2c_pins: !include checks/${'ok' if not i2c_used or (pin_sda not in gpio_input_only and pin_scl not in gpio_input_only) else 'CONFIG_ERROR_pin_sda_and_pin_scl_must_not_be_an_input_only_gpio_34_to_39'}.yaml
+  check_pins_unique: !include checks/${'ok' if pins_used | length == pins_used | unique | list | length else 'CONFIG_ERROR_a_pin_is_used_for_two_functions'}.yaml
+  check_pin_numbers: !include checks/${'ok' if pins_used | select('in', gpio_usable) | list | length == pins_used | length else 'CONFIG_ERROR_a_pin_is_not_a_usable_gpio_number_of_this_board_or_none_for_a_sensor_that_is_built'}.yaml
+
+  # --- I2C ---
+  check_mlx90614_address: !include checks/${'ok' if not sky or ((mlx90614_address | string).startswith('0x') and (mlx90614_address | string) | length == 4) else 'CONFIG_ERROR_mlx90614_address_must_look_like_0x5A'}.yaml
+  check_bme280_address: !include checks/${'ok' if not bme280 or bme280_address in ['0x76', '0x77'] else 'CONFIG_ERROR_bme280_address_must_be_0x76_or_0x77'}.yaml
+
+  # --- basic values ---
+  check_any_sensor: !include checks/${'ok' if sensors_built > 0 else 'CONFIG_ERROR_at_least_one_sensor_must_be_built'}.yaml
+  check_rain_inverted: !include checks/${'ok' if rain_inverted in [true, false] else 'CONFIG_ERROR_rain_inverted_must_be_true_or_false'}.yaml
+  check_wind_value: !include checks/${'ok' if wind in [true, false] else 'CONFIG_ERROR_wind_must_be_true_or_false'}.yaml
+  check_sky_value: !include checks/${'ok' if sky in [true, false] else 'CONFIG_ERROR_sky_must_be_true_or_false'}.yaml
+  check_rain_value: !include checks/${'ok' if rain in [true, false] else 'CONFIG_ERROR_rain_must_be_true_or_false'}.yaml
+  check_bme280_value: !include checks/${'ok' if bme280 in [true, false] else 'CONFIG_ERROR_bme280_must_be_true_or_false'}.yaml
+  check_hardware: !include checks/${'ok' if hw_known else 'CONFIG_ERROR_hardware_is_not_a_known_board'}.yaml
+  check_log_level: !include checks/${'ok' if log_level in ['DEBUG', 'INFO', 'WARN'] else 'CONFIG_ERROR_log_level_must_be_DEBUG_or_INFO_or_WARN'}.yaml

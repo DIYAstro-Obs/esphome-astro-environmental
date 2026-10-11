@@ -1,0 +1,74 @@
+# =========================================================
+# Astro-Environmental - entry point
+#
+# The station is configured in ONE file: esphome-astro-environmental/config/astro-environmental-config.yaml
+# (device name, which sensors are built, pins, I2C addresses).
+# This file only holds what every installation needs: ESP32, API, web interface, OTA and the package list.
+# =========================================================
+substitutions: !include esphome-astro-environmental/config/astro-environmental-config.yaml
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  framework:
+    type: arduino
+
+# Credentials live in secrets.yaml (see secrets.yaml.example), never in this file.
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+web_server:
+  port: 80
+  auth:
+    # digest: the browser sends a hash instead of the password itself (basic is cleartext)
+    type: digest
+    username: !secret web_username
+    password: !secret web_password
+
+logger:
+  level: ${log_level}
+
+# Write changed settings (restore_value entities) to flash 10s after a change (default: 60s).
+# Without this, settings changed within 60s before a power cut are lost.
+preferences:
+  flash_write_interval: "10s"
+
+# === OTA UPDATE CONFIGURATION ===
+# Uses mDNS/Auto-Discovery (<name>.local)
+# "encryption:" encrypts the firmware transfer and authenticates the uploader with
+# the same key as the native API (api_encryption_key), so no separate OTA password.
+ota:
+  - platform: esphome
+    encryption:
+  # Web upload (file form in the web interface) is the emergency fallback only. It is
+  # protected by the web_server login (digest auth), not by api_encryption_key, and the
+  # uploaded firmware itself is not encrypted. Use the ESPHome dashboard for regular updates.
+  - platform: web_server
+
+
+# =========================================================
+# PACKAGES (what is included follows from astro-environmental-config.yaml)
+# =========================================================
+# (ESPHome reports the failing package that comes LAST in a list first: the station package with its checks is at
+# the end, so a wrong value in astro-environmental-config.yaml is named by a check and not by a missing file.)
+packages:
+  # Board (exactly one) and its I2C bus (only when a sensor on the bus is built)
+  board: !include esphome-astro-environmental/hardware/hw_${hardware}.yaml
+  board_i2c: !include esphome-astro-environmental/${'hardware/hw_' + hardware + '_i2c' if bme280 or sky else 'features/none'}.yaml
+
+  # Network: WiFi
+  network: !include esphome-astro-environmental/network/wifi.yaml
+
+  # Health sensors of the ESP32 and the WiFi link
+  feature_sysmon: !include esphome-astro-environmental/features/system_monitor.yaml
+  feature_sysmon_wifi: !include esphome-astro-environmental/features/system_monitor_wifi.yaml
+
+  # The sensors: a sensor that is not built does not exist in Home Assistant
+  feature_bme280: !include esphome-astro-environmental/features/${'bme280' if bme280 else 'none'}.yaml
+  feature_rain: !include esphome-astro-environmental/features/${'rain' if rain else 'none'}.yaml
+  feature_sky: !include esphome-astro-environmental/features/${'sky' if sky else 'none'}.yaml
+  feature_wind: !include esphome-astro-environmental/features/${'wind' if wind else 'none'}.yaml
+
+  # Device name, minimum ESPHome version and the checks of the configuration
+  station: !include esphome-astro-environmental/station.yaml

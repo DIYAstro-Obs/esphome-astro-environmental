@@ -1,0 +1,37 @@
+# =========================================================
+# FEATURE: SYSTEM MONITOR - WiFi Extension
+# WiFi-specific sensors for Home Assistant.
+# Only include this file on WiFi-based boards.
+#
+# Requires: esphome-astro-environmental/features/system_monitor.yaml (base monitoring)
+# (the station is WiFi only)
+# =========================================================
+
+sensor:
+  # WiFi signal strength in dBm
+  - platform: wifi_signal
+    name: "WiFi RSSI"
+    id: sensor_wifi_rssi
+    icon: "mdi:wifi"
+    unit_of_measurement: "dBm"
+    entity_category: diagnostic
+    update_interval: 60s
+
+text_sensor:
+  # Current IP address
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: sensor_wifi_ip
+      icon: "mdi:ip-network"
+      entity_category: diagnostic
+    ssid:
+      name: "WiFi SSID"
+      id: sensor_wifi_ssid
+      icon: "mdi:wifi"
+      entity_category: diagnostic
+    bssid:
+      name: "WiFi BSSID"
+      id: sensor_wifi_bssid
+      icon: "mdi:wifi"
+      entity_category: diagnostic
