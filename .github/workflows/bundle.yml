@@ -1,0 +1,70 @@
+name: Bundle
+
+# Manual only: Actions tab -> Bundle -> "Run workflow".
+# Creates the ESPHome bundle of the station (for the import in the ESPHome Device Builder) and attaches it to the
+# latest release, or to the release tag that is entered. An older file of the same name is replaced.
+# Locally the same file is made with: python scripts/make_bundle.py
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the bundle to (empty: the latest release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write  # attach a file to a release
+
+jobs:
+  bundle:
+    name: Create the bundle and attach it to the release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Find the release
+        id: release
+        run: |
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ]; then
+            tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::There is no release yet. Create a release first, then run this workflow again."
+            exit 1
+          fi
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null; then
+            echo "::error::The release $tag does not exist."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release: $tag"
+
+      # The state of the release, so that the bundle belongs to exactly this release
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+
+      - name: The release has to contain the script
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if [ ! -f scripts/make_bundle.py ]; then
+            echo "::error::The release $TAG has no scripts/make_bundle.py. Create a new release that contains it."
+            exit 1
+          fi
+
+      # ESPHome 2026.7 and newer needs Python 3.13+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r tests/requirements.txt
+
+      - name: Create the bundle
+        run: python scripts/make_bundle.py --output dist/astro-environmental.esphomebundle.tar.gz
+
+      - name: Attach the bundle to the release
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh release upload "$TAG" dist/astro-environmental.esphomebundle.tar.gz --clobber --repo "$GITHUB_REPOSITORY"

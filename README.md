@@ -27,7 +27,7 @@ esphome-astro-environmental/
   hardware/                                   the board and its I2C bus
   network/wifi.yaml                           WiFi
   features/                                   system monitor, WiFi monitor, the sensors and the calculated values
-scripts/                                      build, deploy and check scripts (PowerShell)
+scripts/                                      build, deploy and check scripts (PowerShell), make_bundle.py
 tests/                                        configuration tests, formula tests, local check runner
 secrets.yaml.example                          template of the secrets
 ```
@@ -174,12 +174,28 @@ ESPHome 2026.9.0 or newer is required (encrypted OTA with the key of the API). R
 3. `.\scripts\deploy.ps1` copies `esphome-astro-environmental` and `astro-environmental.yaml` to `/config/esphome/` via SCP. `.\scripts\build_and_deploy.ps1` compiles locally first and deploys only when that succeeds.
 4. In the ESPHome dashboard, click **Install** on `astro-environmental`.
 
+## Bundle for the ESPHome Device Builder
+
+A bundle (`astro-environmental.esphomebundle.tar.gz`) holds the whole project and can be imported in the ESPHome
+Device Builder instead of copying the files by hand. It is attached to a release; the **Bundle** workflow
+(GitHub, Actions, Bundle, Run workflow) creates it and attaches it to the latest release (or to the tag that is
+entered), and replaces an older file of the same name. The workflow only runs when you start it.
+
+- **No secrets inside.** `esphome bundle` packs the values of the secrets a configuration uses, so
+  `scripts/make_bundle.py` removes them again. The keys of `secrets.yaml.example` have to exist in the secrets of
+  your Device Builder; the import only adds missing keys and never changes existing ones.
+- **All files of the project inside**, not only those the default configuration loads: a configuration that you
+  change after the import (hardware switched off, for example) finds the files it needs. The example
+  configurations are inside as well.
+- The same file is made locally with `python scripts/make_bundle.py` (needs ESPHome); the output goes to `dist/`.
+
 ## Tests
 
 `.\scripts\check.ps1` (needs WSL with a Linux distribution; started by hand) compiles the firmware and every example and runs the tests. `-TestsOnly` runs only the tests, `-FirmwareOnly` only the compile.
 
 - `tests/test_config_checks.py`: a wrong configuration fails with the named `CONFIG_ERROR_...`, a right one builds exactly the entities that are built (also for every single switch and for what is calculated from a switched-off sensor), every example validates.
 - `tests/test_formulas.py`: dew point (also against the Buck equation), cloud cover and wind speed, and that the YAML uses the same constants and expressions.
+- `tests/test_bundle.py`: the bundle has no secrets, contains every file of the project, can be read by ESPHome, and a configuration changed after the import still validates.
 
 ## Web Interface
 
