@@ -79,6 +79,19 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 
 A chip without a sensor that is built is not set up at all: when no sensor on the I2C bus is built there is no I2C bus and the pins `pin_sda`, `pin_scl` may be `none`; the same holds for `pin_wind` when no wind sensor is built. The log line `Built: ...` at the start shows what is built. To only hide a value that something else needs, hide the entity in Home Assistant instead of switching it off here.
 
+### I2C addresses
+
+The addresses of the two chips are the keys `bme280_address` and `mlx90614_address`.
+
+| Chip | Default | Allowed |
+|---|---|---|
+| BME280 | `"0x76"` | `"0x76"` or `"0x77"`: the SDO pin of the module selects it (GND = `0x76`, VCC = `0x77`) |
+| MLX90614 | `"0x5A"` | any address of the form `"0x.."` if the chip was reprogrammed (this firmware does not reprogram it) |
+
+Write the address **in quotation marks**. Without them YAML reads `0x76` as a number, and the check refuses it.
+
+To find out where a chip answers, set `scan: true` in `esphome-astro-environmental/hardware/hw_esp32_devkit_i2c.yaml` for one flash: at start the device writes every address that answers on the bus to the log. That is also the first thing to try when a sensor stays *unknown*. Set it back to `false` afterwards, the scan is not needed in normal operation. There is one chip of each type on the bus.
+
 ### Checks
 
 A wrong value stops the build with an error that names the problem (`CONFIG_ERROR_...` in the message), for example a pin that does not exist or is flash, two functions on one pin, an input-only pin used for I2C or for the reed contact, no sensor built, a switch that is not `true` or `false`, or a wrong I2C address.
