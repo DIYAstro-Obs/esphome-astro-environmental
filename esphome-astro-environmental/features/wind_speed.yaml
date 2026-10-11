@@ -1,0 +1,22 @@
+# =========================================================
+# FEATURE: WIND SPEED (mean of the last 60 s)
+#
+# Requires features/wind.yaml (the 3 s speed). A value every 15 s.
+# =========================================================
+
+sensor:
+  - platform: copy
+    source_id: wind_speed_3s
+    name: "Wind Speed"
+    id: ent_wind_speed
+    icon: "mdi:weather-windy"
+    device_class: wind_speed
+    state_class: measurement
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    filters:
+      # 20 values of 3 s = 60 s, a value every 5 values (15 s)
+      - sliding_window_moving_average:
+          window_size: 20
+          send_every: 5
+          send_first_at: 1

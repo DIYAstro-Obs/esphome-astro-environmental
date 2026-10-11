@@ -1,0 +1,43 @@
+# =========================================================
+# EXAMPLE: selected single sensors
+#
+# All groups are built, but the pressure and the wind gust are switched off. Everything that is calculated from
+# a switched-off sensor is not built either: with sensor_temperature set to false the dew point would be gone too.
+# Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
+# =========================================================
+
+# --- device ---
+name: astro-environmental
+log_level: INFO
+hardware: esp32_devkit
+
+# --- groups ---
+bme280: true
+rain: true
+sky: true
+wind: true
+
+# --- single sensors ---
+sensor_temperature: true
+sensor_humidity: true
+sensor_pressure: false        # not reported
+sensor_dew_point: true
+sensor_sky_temperature: true
+sensor_sky_ambient: true
+sensor_sky_delta: true
+sensor_cloud_cover: true
+sensor_wind_speed: true
+sensor_wind_gust: false       # not reported
+
+# --- I2C bus ---
+pin_sda: 21
+pin_scl: 22
+i2c_frequency: 50kHz
+bme280_address: "0x76"
+mlx90614_address: "0x5A"
+
+# --- inputs ---
+pin_rain: 25
+rain_inverted: true
+pin_wind: 26
+wind_filter: 5ms

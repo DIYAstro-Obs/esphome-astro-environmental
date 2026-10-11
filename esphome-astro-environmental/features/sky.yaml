@@ -1,54 +1,14 @@
 # =========================================================
-# FEATURE: SKY / CLOUD SENSOR (MLX90614 infrared thermometer)
+# FEATURE: SKY SENSOR (MLX90614 infrared thermometer)
 #
 # Requires the I2C bus (bus_a) of esphome-astro-environmental/hardware/hw_<hardware>_i2c.yaml.
 #
-# Sky Temperature        the infrared object temperature, averaged over 60 s
-# Sky Sensor Ambient     the temperature of the sensor housing
-# Sky Temperature Delta  Sky Temperature - Sky Sensor Ambient (a clear sky is far below the ambient)
-# Cloud Cover            the delta mapped linearly between two limits to 0..100 %:
-#                          Cloud Cover = clamp((Delta - Clear) / (Overcast - Clear) * 100, 0, 100)
+# Sky Temperature      the infrared object temperature, averaged over 60 s
+# Sky Sensor Ambient   the temperature of the sensor housing (diagnostic)
 #
-# The two limits are settings in Home Assistant (a clear sky falls less far below the ambient in humid air, and the
-# values change with the season), so they are numbers with restore_value, not constants of the firmware.
-# The defaults are starting points: calibrate them against your own observations.
+# A sensor that is switched off (sensor_sky_temperature, sensor_sky_ambient) is internal: it is not reported to
+# Home Assistant. The calculated values are in features/sky_delta.yaml and features/cloud_cover.yaml.
 # =========================================================
-
-number:
-  - platform: template
-    name: "Cloud Clear Delta"
-    id: cfg_cloud_clear_delta
-    icon: "mdi:weather-night"
-    entity_category: config
-    unit_of_measurement: "°C"
-    mode: box
-    min_value: -60
-    max_value: 20
-    step: 0.5
-    initial_value: -25
-    restore_value: true
-    optimistic: true
-    # recalculate at once when a limit is changed
-    on_value:
-      then:
-        - script.execute: script_cloud_update
-
-  - platform: template
-    name: "Cloud Overcast Delta"
-    id: cfg_cloud_overcast_delta
-    icon: "mdi:weather-cloudy"
-    entity_category: config
-    unit_of_measurement: "°C"
-    mode: box
-    min_value: -60
-    max_value: 20
-    step: 0.5
-    initial_value: -8
-    restore_value: true
-    optimistic: true
-    on_value:
-      then:
-        - script.execute: script_cloud_update
 
 sensor:
   - platform: mlx90614
@@ -57,12 +17,14 @@ sensor:
     update_interval: 10s
     ambient:
       name: "Sky Sensor Ambient"
-      id: sensor_sky_ambient
+      id: ent_sky_ambient
+      internal: ${ not sensor_sky_ambient }
       entity_category: diagnostic
       accuracy_decimals: 1
     object:
       name: "Sky Temperature"
-      id: sensor_sky_temperature
+      id: ent_sky_temperature
+      internal: ${ not sensor_sky_temperature }
       accuracy_decimals: 1
       filters:
         # 6 readings (60 s), a value every 3 readings (30 s)
@@ -70,52 +32,3 @@ sensor:
             window_size: 6
             send_every: 3
             send_first_at: 1
-      on_value:
-        then:
-          - script.execute: script_cloud_update
-
-  # Published by script_cloud_update (no lambda and no update interval of their own).
-  # No device_class: it is a temperature DIFFERENCE, which Home Assistant must not convert to Fahrenheit.
-  - platform: template
-    name: "Sky Temperature Delta"
-    id: sensor_sky_delta
-    icon: "mdi:thermometer-minus"
-    unit_of_measurement: "°C"
-    state_class: measurement
-    accuracy_decimals: 1
-    update_interval: never
-
-  - platform: template
-    name: "Cloud Cover"
-    id: sensor_cloud_cover
-    icon: "mdi:weather-cloudy"
-    unit_of_measurement: "%"
-    state_class: measurement
-    accuracy_decimals: 0
-    update_interval: never
-
-script:
-  - id: script_cloud_update
-    mode: restart
-    then:
-      - lambda: |-
-          const float sky = id(sensor_sky_temperature).state;
-          const float ambient = id(sensor_sky_ambient).state;
-          if (std::isnan(sky) || std::isnan(ambient)) {
-            id(sensor_sky_delta).publish_state(NAN);
-            id(sensor_cloud_cover).publish_state(NAN);
-            return;
-          }
-          const float delta = sky - ambient;
-          id(sensor_sky_delta).publish_state(delta);
-          const float clear = id(cfg_cloud_clear_delta).state;
-          const float overcast = id(cfg_cloud_overcast_delta).state;
-          // equal limits or Clear above Overcast: no cloud cover instead of a wrong value
-          if (std::isnan(clear) || std::isnan(overcast) || overcast <= clear) {
-            id(sensor_cloud_cover).publish_state(NAN);
-            return;
-          }
-          float percent = (delta - clear) / (overcast - clear) * 100.0f;
-          if (percent < 0.0f) percent = 0.0f;
-          if (percent > 100.0f) percent = 100.0f;
-          id(sensor_cloud_cover).publish_state(percent);

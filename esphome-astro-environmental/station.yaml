@@ -1,15 +1,56 @@
 # =========================================================
-# STATION CORE: everything that does not depend on a sensor
+# STATION CORE: what is built, the sensors and the checks
 #
-# Included by the entry file (astro-environmental.yaml). What is built is decided by
-# astro-environmental-config.yaml; the sensors are the packages in features/.
+# Included by the entry file (astro-environmental.yaml). What is built follows from the groups and the single
+# sensors of astro-environmental-config.yaml (the substitutions below); the sensors are the packages in features/.
 # (paths in a package file are relative to this file)
 # =========================================================
+# What is really built (derived from the configuration, do not edit).
+# A sensor that is switched off takes everything with it that is calculated from it, and a chip without a sensor
+# that is built is not set up at all. 1 = built, 0 = not built; always used as `x | int`. The packages below
+# (config/checks.yaml) use these values too.
+substitutions:
+  bme280_on: ${ 1 if bme280 and (sensor_temperature or sensor_humidity or sensor_pressure) else 0 }
+  dew_point_on: ${ 1 if bme280 and sensor_temperature and sensor_humidity and sensor_dew_point else 0 }
+  sky_on: ${ 1 if sky and (sensor_sky_temperature or sensor_sky_ambient) else 0 }
+  sky_delta_on: ${ 1 if sky and sensor_sky_temperature and sensor_sky_ambient and sensor_sky_delta else 0 }
+  cloud_cover_on: ${ 1 if sky and sensor_sky_temperature and sensor_sky_ambient and sensor_sky_delta and sensor_cloud_cover else 0 }
+  wind_on: ${ 1 if wind and (sensor_wind_speed or sensor_wind_gust) else 0 }
+  wind_speed_on: ${ 1 if wind and sensor_wind_speed else 0 }
+  wind_gust_on: ${ 1 if wind and sensor_wind_gust else 0 }
+  i2c_on: ${ 1 if (bme280 and (sensor_temperature or sensor_humidity or sensor_pressure)) or (sky and (sensor_sky_temperature or sensor_sky_ambient)) else 0 }
+
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        # What is built: a sensor that is switched off, and everything calculated from it, is not
+        - lambda: |-
+            ESP_LOGI("astro", "Built (1 = yes): BME280 ${bme280_on}, dew point ${dew_point_on}, rain ${rain}, "
+                              "sky ${sky_on}, sky delta ${sky_delta_on}, cloud cover ${cloud_cover_on}, "
+                              "wind speed ${wind_speed_on}, wind gust ${wind_gust_on}");
+
 # (ESPHome reports the failing package that comes LAST in a list first: the checks are at the end, so a wrong value
 # in astro-environmental-config.yaml is named by a check and not by a follow-up error such as a missing file.)
 packages:
   # Device name and minimum ESPHome version
   boot: !include core/boot.yaml
+
+  # The I2C bus, only when a sensor on the bus is built
+  board_i2c: !include ${'hardware/hw_' + hardware + '_i2c' if i2c_on | int else 'features/none'}.yaml
+
+  # The chips and the values read from them: a sensor that is not built does not exist in Home Assistant
+  feature_bme280: !include features/${'bme280' if bme280_on | int else 'none'}.yaml
+  feature_rain: !include features/${'rain' if rain else 'none'}.yaml
+  feature_sky: !include features/${'sky' if sky_on | int else 'none'}.yaml
+  feature_wind: !include features/${'wind' if wind_on | int else 'none'}.yaml
+  feature_wind_speed: !include features/${'wind_speed' if wind_speed_on | int else 'none'}.yaml
+  feature_wind_gust: !include features/${'wind_gust' if wind_gust_on | int else 'none'}.yaml
+
+  # The calculated values: only when everything they are calculated from is built
+  feature_dew_point: !include features/${'dew_point' if dew_point_on | int else 'none'}.yaml
+  feature_sky_delta: !include features/${'sky_delta' if sky_delta_on | int else 'none'}.yaml
+  feature_cloud_cover: !include features/${'cloud_cover' if cloud_cover_on | int else 'none'}.yaml
 
   # --- checks: wrong values in astro-environmental-config.yaml stop here with a message that names the problem ---
   checks: !include config/checks.yaml

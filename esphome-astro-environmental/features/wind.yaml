@@ -1,6 +1,9 @@
 # =========================================================
 # FEATURE: WIND (anemometer with a reed contact, pulse counting)
 #
+# The counter, the 3 s speed and the settings. The entities are in features/wind_speed.yaml and
+# features/wind_gust.yaml (each can be switched off on its own).
+#
 # Every closing of the reed contact is a pulse. The number of pulses per revolution and the speed of one
 # revolution per second are settings in Home Assistant, so a different anemometer or a calibration
 # needs no new firmware:
@@ -8,9 +11,6 @@
 #   speed (km/h)           = revolutions per second * "Wind Speed per Revolution per Second"
 # The defaults (1 pulse per revolution, 2.4 km/h per revolution per second) are the usual values of the
 # cheap Misol / Froggit / Ecowitt type anemometers.
-#
-# Wind Speed  mean of the last 60 s (a value every 15 s)
-# Wind Gust   maximum of the 3 s values of the last 10 min (a value every 15 s)
 # =========================================================
 
 number:
@@ -66,35 +66,3 @@ sensor:
         return NAN;
       }
       return rate / per_revolution / 60.0f * kmh_per_rps;
-
-  - platform: copy
-    source_id: wind_speed_3s
-    name: "Wind Speed"
-    id: sensor_wind_speed
-    icon: "mdi:weather-windy"
-    device_class: wind_speed
-    state_class: measurement
-    unit_of_measurement: "km/h"
-    accuracy_decimals: 1
-    filters:
-      # 20 values of 3 s = 60 s, a value every 5 values (15 s)
-      - sliding_window_moving_average:
-          window_size: 20
-          send_every: 5
-          send_first_at: 1
-
-  - platform: copy
-    source_id: wind_speed_3s
-    name: "Wind Gust"
-    id: sensor_wind_gust
-    icon: "mdi:weather-windy-variant"
-    device_class: wind_speed
-    state_class: measurement
-    unit_of_measurement: "km/h"
-    accuracy_decimals: 1
-    filters:
-      # 200 values of 3 s = 10 min, a value every 5 values (15 s)
-      - max:
-          window_size: 200
-          send_every: 5
-          send_first_at: 1

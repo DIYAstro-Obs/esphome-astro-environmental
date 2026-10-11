@@ -14,11 +14,26 @@ name: astro-environmental
 log_level: DEBUG              # DEBUG | INFO | WARN (WARN for production)
 hardware: esp32_devkit        # board: esphome-astro-environmental/hardware/hw_<hardware>.yaml
 
-# --- sensors: true = built, false = not built ---
+# --- groups: true = built, false = not built ---
 bme280: true                  # BME280: temperature, humidity, pressure and the dew point calculated from them
-rain: true                    # rain sensor module with a digital output
+rain: true                    # rain sensor module with a digital output (one sensor: Rain)
 sky: true                     # MLX90614 infrared thermometer: sky temperature, delta, cloud cover
 wind: true                    # anemometer with a reed contact (pulse counting)
+
+# --- single sensors: built when their group is true and the switch is true ---
+# A sensor that is switched off is not reported to Home Assistant, and everything that is calculated from it is not
+# built either: Dew Point needs Temperature and Humidity, Sky Temperature Delta needs Sky Temperature and Sky Sensor
+# Ambient, Cloud Cover needs Sky Temperature Delta. A group whose sensors are all off is not built at all.
+sensor_temperature: true      # BME280
+sensor_humidity: true         # BME280
+sensor_pressure: true         # BME280
+sensor_dew_point: true        # calculated from temperature and humidity
+sensor_sky_temperature: true  # MLX90614 object temperature
+sensor_sky_ambient: true      # MLX90614 housing temperature (diagnostic)
+sensor_sky_delta: true        # sky temperature minus housing temperature
+sensor_cloud_cover: true      # cloud cover in % calculated from the delta
+sensor_wind_speed: true       # mean of 60 s
+sensor_wind_gust: true        # maximum of 10 min
 
 # --- I2C bus (BME280 and MLX90614) ---
 pin_sda: 21                   # GPIO number
@@ -30,5 +45,5 @@ mlx90614_address: "0x5A"      # factory default of the MLX90614
 # --- inputs ---
 pin_rain: 25                  # GPIO number, `none` if rain is false
 rain_inverted: true           # true: the module pulls its output LOW when wet (most modules)
-pin_wind: 26                  # GPIO number, `none` if wind is false. Needs a pin with a pull-up (not 34..39)
+pin_wind: 26                  # GPIO number, `none` if no wind sensor is built. Needs a pin with a pull-up (not 34..39)
 wind_filter: 5ms              # debounce of the reed contact (shorter than the fastest revolution)

@@ -1,7 +1,7 @@
 # =========================================================
 # EXAMPLE: only the BME280 (temperature, humidity, pressure, dew point)
 #
-# The other sensors are not built: they do not exist in Home Assistant, and their pins are `none`.
+# The other groups are not built: their entities do not exist in Home Assistant, and their pins are `none`.
 # Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
 # =========================================================
 
@@ -10,11 +10,23 @@ name: astro-environmental
 log_level: INFO
 hardware: esp32_devkit
 
-# --- sensors ---
+# --- groups ---
 bme280: true
 rain: false
 sky: false
 wind: false
+
+# --- single sensors ---
+sensor_temperature: true
+sensor_humidity: true
+sensor_pressure: true
+sensor_dew_point: true
+sensor_sky_temperature: true
+sensor_sky_ambient: true
+sensor_sky_delta: true
+sensor_cloud_cover: true
+sensor_wind_speed: true
+sensor_wind_gust: true
 
 # --- I2C bus ---
 pin_sda: 21

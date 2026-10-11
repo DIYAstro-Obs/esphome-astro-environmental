@@ -1,0 +1,84 @@
+# =========================================================
+# FEATURE: CLOUD COVER (calculated from the sky temperature delta)
+#
+# Only built when the sky temperature delta is built (astro-environmental.yaml: cloud_cover_on).
+#   Cloud Cover = clamp((Delta - Clear) / (Overcast - Clear) * 100, 0, 100)
+#
+# The two limits are settings in Home Assistant (a clear sky falls less far below the ambient in humid air, and the
+# values change with the season), so they are numbers with restore_value, not constants of the firmware.
+# The defaults are starting points: calibrate them against your own observations.
+# =========================================================
+
+number:
+  - platform: template
+    name: "Cloud Clear Delta"
+    id: cfg_cloud_clear_delta
+    icon: "mdi:weather-night"
+    entity_category: config
+    unit_of_measurement: "°C"
+    mode: box
+    min_value: -60
+    max_value: 20
+    step: 0.5
+    initial_value: -25
+    restore_value: true
+    optimistic: true
+    # recalculate at once when a limit is changed
+    on_value:
+      then:
+        - script.execute: script_cloud_update
+
+  - platform: template
+    name: "Cloud Overcast Delta"
+    id: cfg_cloud_overcast_delta
+    icon: "mdi:weather-cloudy"
+    entity_category: config
+    unit_of_measurement: "°C"
+    mode: box
+    min_value: -60
+    max_value: 20
+    step: 0.5
+    initial_value: -8
+    restore_value: true
+    optimistic: true
+    on_value:
+      then:
+        - script.execute: script_cloud_update
+
+sensor:
+  # Published by script_cloud_update (no lambda and no update interval of its own)
+  - platform: template
+    name: "Cloud Cover"
+    id: ent_cloud_cover
+    icon: "mdi:weather-cloudy"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: never
+
+  # An internal copy of the delta: the cloud cover is calculated at every new delta
+  - platform: copy
+    source_id: ent_sky_delta
+    id: cloud_cover_trigger
+    internal: true
+    on_value:
+      then:
+        - script.execute: script_cloud_update
+
+script:
+  - id: script_cloud_update
+    mode: restart
+    then:
+      - lambda: |-
+          const float delta = id(ent_sky_delta).state;
+          const float clear = id(cfg_cloud_clear_delta).state;
+          const float overcast = id(cfg_cloud_overcast_delta).state;
+          // no delta, equal limits or Clear above Overcast: no cloud cover instead of a wrong value
+          if (std::isnan(delta) || std::isnan(clear) || std::isnan(overcast) || overcast <= clear) {
+            id(ent_cloud_cover).publish_state(NAN);
+            return;
+          }
+          float percent = (delta - clear) / (overcast - clear) * 100.0f;
+          if (percent < 0.0f) percent = 0.0f;
+          if (percent > 100.0f) percent = 100.0f;
+          id(ent_cloud_cover).publish_state(percent);

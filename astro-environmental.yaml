@@ -53,9 +53,8 @@ ota:
 # (ESPHome reports the failing package that comes LAST in a list first: the station package with its checks is at
 # the end, so a wrong value in astro-environmental-config.yaml is named by a check and not by a missing file.)
 packages:
-  # Board (exactly one) and its I2C bus (only when a sensor on the bus is built)
+  # Board (exactly one)
   board: !include esphome-astro-environmental/hardware/hw_${hardware}.yaml
-  board_i2c: !include esphome-astro-environmental/${'hardware/hw_' + hardware + '_i2c' if bme280 or sky else 'features/none'}.yaml
 
   # Network: WiFi
   network: !include esphome-astro-environmental/network/wifi.yaml
@@ -64,11 +63,5 @@ packages:
   feature_sysmon: !include esphome-astro-environmental/features/system_monitor.yaml
   feature_sysmon_wifi: !include esphome-astro-environmental/features/system_monitor_wifi.yaml
 
-  # The sensors: a sensor that is not built does not exist in Home Assistant
-  feature_bme280: !include esphome-astro-environmental/features/${'bme280' if bme280 else 'none'}.yaml
-  feature_rain: !include esphome-astro-environmental/features/${'rain' if rain else 'none'}.yaml
-  feature_sky: !include esphome-astro-environmental/features/${'sky' if sky else 'none'}.yaml
-  feature_wind: !include esphome-astro-environmental/features/${'wind' if wind else 'none'}.yaml
-
-  # Device name, minimum ESPHome version and the checks of the configuration
+  # What is built (the I2C bus, the sensors and the values calculated from them) and the checks of the configuration
   station: !include esphome-astro-environmental/station.yaml

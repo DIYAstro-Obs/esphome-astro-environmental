@@ -1,0 +1,22 @@
+# =========================================================
+# FEATURE: WIND GUST (maximum of the 3 s values of the last 10 min)
+#
+# Requires features/wind.yaml (the 3 s speed). A value every 15 s.
+# =========================================================
+
+sensor:
+  - platform: copy
+    source_id: wind_speed_3s
+    name: "Wind Gust"
+    id: ent_wind_gust
+    icon: "mdi:weather-windy-variant"
+    device_class: wind_speed
+    state_class: measurement
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    filters:
+      # 200 values of 3 s = 10 min, a value every 5 values (15 s)
+      - max:
+          window_size: 200
+          send_every: 5
+          send_first_at: 1

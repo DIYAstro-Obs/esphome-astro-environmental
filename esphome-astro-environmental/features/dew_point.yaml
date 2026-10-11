@@ -1,0 +1,37 @@
+# =========================================================
+# FEATURE: DEW POINT (calculated from the BME280 temperature and humidity)
+#
+# Only built when the temperature and the humidity are built (astro-environmental.yaml: dew_point_on).
+# Magnus formula with the constants of Sonntag (1990), valid from -45 to +60 degC:
+#   gamma = ln(RH / 100) + 17.62 * T / (243.12 + T)
+#   Td    = 243.12 * gamma / (17.62 - gamma)
+# =========================================================
+
+sensor:
+  # Published by the internal copy below (no lambda and no update interval of its own)
+  - platform: template
+    name: "Dew Point"
+    id: ent_dew_point
+    device_class: temperature
+    state_class: measurement
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: never
+
+  # An internal copy of the humidity: the dew point is calculated at every new humidity value. The BME280
+  # publishes the temperature first and the humidity last, so both are fresh here.
+  - platform: copy
+    source_id: ent_humidity
+    id: dew_point_trigger
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            const float t = id(ent_temperature).state;
+            const float rh = x;
+            if (std::isnan(t) || std::isnan(rh) || rh <= 0.0f) {
+              id(ent_dew_point).publish_state(NAN);
+              return;
+            }
+            const float gamma = logf(rh / 100.0f) + 17.62f * t / (243.12f + t);
+            id(ent_dew_point).publish_state(243.12f * gamma / (17.62f - gamma));

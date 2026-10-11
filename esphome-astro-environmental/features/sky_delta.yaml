@@ -1,0 +1,34 @@
+# =========================================================
+# FEATURE: SKY TEMPERATURE DELTA (calculated from the MLX90614)
+#
+# Only built when the sky temperature and the sensor ambient are built (astro-environmental.yaml: sky_delta_on).
+#   Sky Temperature Delta = Sky Temperature - Sky Sensor Ambient   (a clear sky is far below the ambient)
+# =========================================================
+
+sensor:
+  # Published by the internal copy below (no lambda and no update interval of its own).
+  # No device_class: it is a temperature DIFFERENCE, which Home Assistant must not convert to Fahrenheit.
+  - platform: template
+    name: "Sky Temperature Delta"
+    id: ent_sky_delta
+    icon: "mdi:thermometer-minus"
+    unit_of_measurement: "°C"
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+
+  # An internal copy of the sky temperature: the delta is calculated at every new (averaged) value
+  - platform: copy
+    source_id: ent_sky_temperature
+    id: sky_delta_trigger
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            const float sky = x;
+            const float ambient = id(ent_sky_ambient).state;
+            if (std::isnan(sky) || std::isnan(ambient)) {
+              id(ent_sky_delta).publish_state(NAN);
+              return;
+            }
+            id(ent_sky_delta).publish_state(sky - ambient);

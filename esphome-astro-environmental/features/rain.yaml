@@ -9,7 +9,7 @@
 binary_sensor:
   - platform: gpio
     name: "Rain"
-    id: sensor_rain
+    id: ent_rain
     icon: "mdi:weather-rainy"
     device_class: moisture
     pin:
