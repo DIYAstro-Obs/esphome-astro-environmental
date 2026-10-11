@@ -106,14 +106,14 @@ def read(name: str) -> str:
 
 
 def test_the_dew_point_lambda_uses_the_documented_constants():
-    text = read("bme280.yaml")
+    text = read("dew_point.yaml")
     assert "logf(rh / 100.0f) + 17.62f * t / (243.12f + t)" in text
     assert "243.12f * gamma / (17.62f - gamma)" in text
     assert "rh <= 0.0f" in text  # no logarithm of zero
 
 
 def test_the_cloud_cover_lambda_uses_the_documented_expression():
-    text = read("sky.yaml")
+    text = read("cloud_cover.yaml")
     assert "(delta - clear) / (overcast - clear) * 100.0f" in text
     assert "overcast <= clear" in text  # equal or reversed limits give no value
     assert "percent < 0.0f" in text and "percent > 100.0f" in text
