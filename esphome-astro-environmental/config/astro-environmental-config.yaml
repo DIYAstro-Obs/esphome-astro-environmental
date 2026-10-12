@@ -49,7 +49,7 @@ bme280_address: "0x76"        # 0x76 (SDO to GND) | 0x77 (SDO to VCC)
 mlx90614_address: "0x5A"      # factory default of the MLX90614
 
 # --- inputs ---
-pin_rain: 25                  # GPIO number, `none` if rain is false
-rain_inverted: true           # true: the module pulls its output LOW when wet (most modules)
+pin_rain: 25                  # GPIO number, `none` if rain is false. Needs a pin with a pull-up (not 34..39)
+rain_inverted: true           # true: LOW = wet: the module pulls its output LOW, or a relay contact to GND closes
 pin_wind: 26                  # GPIO number, `none` if no wind sensor is built. Needs a pin with a pull-up (not 34..39)
 wind_filter: 5ms              # debounce of the reed contact (shorter than the fastest revolution)

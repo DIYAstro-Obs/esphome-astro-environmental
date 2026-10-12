@@ -9,7 +9,8 @@ substitutions:
 
   # GPIOs of an ESP32 DevKit that can be used: GPIO6..11 are the flash, 20/24/28..31 do not exist
   gpio_usable: ${ range(0, 40) | reject('in', [6, 7, 8, 9, 10, 11, 20, 24, 28, 29, 30, 31]) | list }
-  # GPIO34..39 can only read: no pull-up, no output (not usable as SDA/SCL, and the reed contact needs a pull-up)
+  # GPIO34..39 can only read: no pull-up, no output (not usable as SDA/SCL, and the reed contact and the rain input
+  # need the internal pull-up)
   gpio_input_only: ${ [34, 35, 36, 37, 38, 39] }
 
   # is anything built at all, and the single sensor switches
@@ -30,6 +31,7 @@ substitutions:
 # at the end: a typo there is reported on its own, not as a follow-up error of the checks above it.
 packages:
   # --- wiring: numbers, duplicates, pins that cannot do the job ---
+  check_rain_pull_up: !include checks/${'ok' if not rain or pin_rain not in gpio_input_only else 'CONFIG_ERROR_pin_rain_needs_a_pull_up_use_a_gpio_other_than_34_to_39'}.yaml
   check_wind_pull_up: !include checks/${'ok' if not wind_on | int or pin_wind not in gpio_input_only else 'CONFIG_ERROR_pin_wind_needs_a_pull_up_use_a_gpio_other_than_34_to_39'}.yaml
   check_i2c_pins: !include checks/${'ok' if not i2c_on | int or (pin_sda not in gpio_input_only and pin_scl not in gpio_input_only) else 'CONFIG_ERROR_pin_sda_and_pin_scl_must_not_be_an_input_only_gpio_34_to_39'}.yaml
   check_pins_unique: !include checks/${'ok' if pins_used | length == pins_used | unique | list | length else 'CONFIG_ERROR_a_pin_is_used_for_two_functions'}.yaml

@@ -59,8 +59,8 @@ The station is configured in **`esphome-astro-environmental/config/astro-environ
 | `i2c_frequency` | `50kHz` | slow on purpose: the sensor head is usually on a long cable |
 | `bme280_address` | `"0x76"` | `0x76` (SDO to GND) or `0x77` (SDO to VCC) |
 | `mlx90614_address` | `"0x5A"` | factory default |
-| `pin_rain` | `25` | input of the rain sensor, `none` if `rain` is false |
-| `rain_inverted` | `true` | the module pulls its output LOW when wet (most modules) |
+| `pin_rain` | `25` | input of the rain sensor, `none` if `rain` is false; internal pull-up, so not 34 to 39 |
+| `rain_inverted` | `true` | LOW = wet: the module pulls its output LOW (most modules), or a relay contact to GND closes |
 | `pin_wind` | `26` | reed contact, `none` if `wind` is false; needs a pin with a pull-up (not 34 to 39) |
 | `wind_filter` | `5ms` | debounce of the reed contact |
 
@@ -103,7 +103,7 @@ To find out where a chip answers, set `scan: true` in `esphome-astro-environment
 
 ### Checks
 
-A wrong value stops the build with an error that names the problem (`CONFIG_ERROR_...` in the message), for example a pin that does not exist or is flash, two functions on one pin, an input-only pin used for I2C or for the reed contact, no sensor built, a switch that is not `true` or `false`, or a wrong I2C address.
+A wrong value stops the build with an error that names the problem (`CONFIG_ERROR_...` in the message), for example a pin that does not exist or is flash, two functions on one pin, an input-only pin used for I2C or for the reed contact, no sensor built, a switch that is not `true` or `false`, a rain input on a pin without a pull-up (34 to 39), or a wrong I2C address.
 
 ## Wiring
 
@@ -113,6 +113,7 @@ A wrong value stops the build with an error that names the problem (`CONFIG_ERRO
 | MLX90614 | 3.3 V, GND, SDA, SCL on the same bus (address `0x5A`) |
 | TSL2591 | 3.3 V, GND, SDA, SCL on the same bus (address `0x29`); supply 2.7 to 3.6 V, so use a 3.3 V module |
 | Rain sensor module | 3.3 V, GND, digital output (DO) = `pin_rain` |
+| Rain sensor with a relay contact (for example Kemo M152K) | one contact terminal to `pin_rain`, the other to GND (the internal pull-up is used); the sensor has its own supply (12 V for the M152K) and the contact is never connected to it |
 | Anemometer (reed contact) | one wire to `pin_wind`, the other to GND (the internal pull-up is used) |
 
 ## Entities
@@ -220,7 +221,7 @@ The calibration stops with a message if a minute is saturated (`failed: sensor s
 - The MLX90614 comes in several fields of view (for example 90°, 35°, 5°). For the sky a narrow field of view is common. It has to look through nothing that blocks infrared (normal glass does).
 - Mount the BME280 in a radiation shield and away from the ESP32, which heats up.
 - Long cables to the sensor head: keep the I2C frequency low, and add an RC filter (for example 10 kΩ and 100 nF) at the reed contact input.
-- The rain sensor module has to give a clean digital level. An open-drain output needs a pull-up resistor.
+- The rain input has the internal pull-up (about 45 kΩ), so a potential-free relay contact to GND or an open-collector output needs no resistor; a module with a push-pull output or its own pull-up works as well. A module whose output goes HIGH when wet needs `rain_inverted: false`. For a long cable add an RC filter at the input (for example 10 kΩ to 3.3 V and 100 nF to GND), as for the reed contact.
 - The TSL2591 module has to run from 3.3 V (the chip allows 2.7 to 3.6 V). Keep it out of direct light from lamps and give it a clear view of the sky; a window or diffuser in front of it only changes the offset.
 - Not tested on a real device yet: measured values, wiring and the calibration of the cloud limits, the wind factor, the dark counts and the sky quality offset are yours to verify.
 

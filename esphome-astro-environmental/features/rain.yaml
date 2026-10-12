@@ -1,7 +1,10 @@
 # =========================================================
 # FEATURE: RAIN SENSOR (module with a digital output)
 #
-# `on` = wet. rain_inverted: true is for the usual modules whose output goes LOW when wet.
+# `on` = wet. rain_inverted: true is for the usual modules whose output goes LOW when wet, and for a relay
+# contact between the pin and GND that closes when wet (for example the Kemo M152K).
+# The internal pull-up holds the pin HIGH while a contact is open or an open-collector output is released; a
+# module with its own pull-up or a push-pull output works as well. (GPIO34..39 have no pull-up: not usable here.)
 # The filters hold the state against flicker: a drop has to stay 2 s to count, and the sensor stays wet for
 # 60 s after the last drop (a drying sensor plate flickers while it dries).
 # =========================================================
@@ -14,7 +17,7 @@ binary_sensor:
     device_class: moisture
     pin:
       number: ${pin_rain}
-      mode: INPUT
+      mode: INPUT_PULLUP
       inverted: ${rain_inverted}
     filters:
       - delayed_on: 2s

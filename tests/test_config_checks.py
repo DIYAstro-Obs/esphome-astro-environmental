@@ -128,6 +128,7 @@ INVALID = [
     ({"pin_rain": 21}, "CONFIG_ERROR_a_pin_is_used_for_two_functions"),  # SDA
     ({"pin_wind": 25}, "CONFIG_ERROR_a_pin_is_used_for_two_functions"),  # rain
     ({"pin_wind": 34}, "CONFIG_ERROR_pin_wind_needs_a_pull_up_use_a_gpio_other_than_34_to_39"),
+    ({"pin_rain": 34}, "CONFIG_ERROR_pin_rain_needs_a_pull_up_use_a_gpio_other_than_34_to_39"),
     ({"pin_sda": 34}, "CONFIG_ERROR_pin_sda_and_pin_scl_must_not_be_an_input_only_gpio_34_to_39"),
     ({"bme280_address": "0x78"}, "CONFIG_ERROR_bme280_address_must_be_0x76_or_0x77"),
     ({"mlx90614_address": "5A"}, "CONFIG_ERROR_mlx90614_address_must_look_like_0x5A"),
@@ -256,6 +257,23 @@ def test_the_sqm_alone_sets_up_the_i2c_bus_with_the_chip_at_its_highest_sensitiv
     assert chip["integration_time"] in (600, "600ms")
     assert chip["power_save_mode"] is False  # a 600 ms integration can take 630 ms, more than the 620 ms ESPHome waits
     assert chip["update_interval"] == "1s"
+
+
+def _binary_sensor(config: dict, name: str) -> "dict | None":
+    return next((s for s in config.get("binary_sensor", []) if s.get("name") == name), None)
+
+
+@pytest.mark.parametrize("overrides, inverted", [({}, True), ({"rain_inverted": "false"}, False)],
+                         ids=["relay-contact-to-gnd", "output-high-when-wet"])
+def test_the_rain_input_has_the_pull_up(tmp_path, overrides, inverted):
+    # a potential-free relay contact (for example Kemo M152K) between the pin and GND needs it: an open contact
+    # would leave the input floating
+    code, output = run_config(tmp_path, overrides)
+    assert code == 0, output[-2500:]
+    pin = _binary_sensor(load_config(output), "Rain")["pin"]
+    assert pin["number"] == 25
+    assert pin["mode"]["input"] is True and pin["mode"]["pullup"] is True
+    assert pin["inverted"] is inverted
 
 
 def test_without_the_sqm_there_is_no_chip(tmp_path):
