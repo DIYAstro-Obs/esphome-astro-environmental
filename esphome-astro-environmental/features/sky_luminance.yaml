@@ -1,0 +1,21 @@
+# =========================================================
+# FEATURE: SKY LUMINANCE (calculated from the sky quality)
+#
+# Only built when the sky quality is built (astro-environmental.yaml: sky_luminance_on).
+#   L [mcd/m2] = 1000 * 1.08e5 * 10^(-0.4 * m)      (the conversion of Unihedron: L [cd/m2] = 1.08e5 * 10^(-0.4 m))
+# It follows the Sky Quality, so the offset of the sky quality is in it too.
+# =========================================================
+
+sensor:
+  - platform: copy
+    source_id: ent_sky_quality
+    name: "Sky Luminance"
+    id: ent_sky_luminance
+    icon: "mdi:brightness-6"
+    state_class: measurement
+    unit_of_measurement: "mcd/m²"
+    accuracy_decimals: 3
+    filters:
+      - lambda: |-
+          if (std::isnan(x)) return NAN;
+          return 1000.0f * 1.08e5f * powf(10.0f, -0.4f * x);

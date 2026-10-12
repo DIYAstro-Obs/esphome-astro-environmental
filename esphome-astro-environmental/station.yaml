@@ -18,7 +18,9 @@ substitutions:
   wind_on: ${ 1 if wind and (sensor_wind_speed or sensor_wind_gust) else 0 }
   wind_speed_on: ${ 1 if wind and sensor_wind_speed else 0 }
   wind_gust_on: ${ 1 if wind and sensor_wind_gust else 0 }
-  i2c_on: ${ 1 if (bme280 and (sensor_temperature or sensor_humidity or sensor_pressure)) or (sky and (sensor_sky_temperature or sensor_sky_ambient)) else 0 }
+  sqm_on: ${ 1 if sqm and (sensor_sky_quality or sensor_sky_illuminance) else 0 }
+  sky_luminance_on: ${ 1 if sqm and sensor_sky_quality and sensor_sky_luminance else 0 }
+  i2c_on: ${ 1 if (bme280 and (sensor_temperature or sensor_humidity or sensor_pressure)) or (sky and (sensor_sky_temperature or sensor_sky_ambient)) or (sqm and (sensor_sky_quality or sensor_sky_illuminance)) else 0 }
 
 esphome:
   on_boot:
@@ -28,7 +30,8 @@ esphome:
         - lambda: |-
             ESP_LOGI("astro", "Built (1 = yes): BME280 ${bme280_on}, dew point ${dew_point_on}, rain ${rain}, "
                               "sky ${sky_on}, sky delta ${sky_delta_on}, cloud cover ${cloud_cover_on}, "
-                              "wind speed ${wind_speed_on}, wind gust ${wind_gust_on}");
+                              "wind speed ${wind_speed_on}, wind gust ${wind_gust_on}, "
+                              "SQM ${sqm_on}, sky luminance ${sky_luminance_on}");
 
 # (ESPHome reports the failing package that comes LAST in a list first: the checks are at the end, so a wrong value
 # in astro-environmental-config.yaml is named by a check and not by a follow-up error such as a missing file.)
@@ -46,11 +49,13 @@ packages:
   feature_wind: !include features/${'wind' if wind_on | int else 'none'}.yaml
   feature_wind_speed: !include features/${'wind_speed' if wind_speed_on | int else 'none'}.yaml
   feature_wind_gust: !include features/${'wind_gust' if wind_gust_on | int else 'none'}.yaml
+  feature_sqm: !include features/${'sqm' if sqm_on | int else 'none'}.yaml
 
   # The calculated values: only when everything they are calculated from is built
   feature_dew_point: !include features/${'dew_point' if dew_point_on | int else 'none'}.yaml
   feature_sky_delta: !include features/${'sky_delta' if sky_delta_on | int else 'none'}.yaml
   feature_cloud_cover: !include features/${'cloud_cover' if cloud_cover_on | int else 'none'}.yaml
+  feature_sky_luminance: !include features/${'sky_luminance' if sky_luminance_on | int else 'none'}.yaml
 
   # --- checks: wrong values in astro-environmental-config.yaml stop here with a message that names the problem ---
   checks: !include config/checks.yaml

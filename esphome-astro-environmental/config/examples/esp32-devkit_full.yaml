@@ -1,7 +1,9 @@
 # =========================================================
-# EXAMPLE: everything built (the default)
+# EXAMPLE: everything built
 #
-# BME280 (with the dew point), rain sensor, MLX90614 cloud sensor and the reed anemometer on an ESP32 DevKit.
+# BME280 (with the dew point), rain sensor, MLX90614 cloud sensor, the reed anemometer and the TSL2591 sky quality
+# sensor on an ESP32 DevKit. (The shipped configuration is the same with `sqm: false`: the sky quality sensor is
+# optional and has to be fitted.)
 # Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
 # =========================================================
 
@@ -15,6 +17,7 @@ bme280: true
 rain: true
 sky: true
 wind: true
+sqm: true
 
 # --- single values (optional) ---
 sensor_temperature: true
@@ -27,8 +30,11 @@ sensor_sky_delta: true
 sensor_cloud_cover: true
 sensor_wind_speed: true
 sensor_wind_gust: true
+sensor_sky_quality: true
+sensor_sky_illuminance: true
+sensor_sky_luminance: true
 
-# --- I2C bus ---
+# --- I2C bus (BME280, MLX90614 and TSL2591) ---
 pin_sda: 21
 pin_scl: 22
 i2c_frequency: 50kHz

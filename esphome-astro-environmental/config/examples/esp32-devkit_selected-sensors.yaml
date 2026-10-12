@@ -16,6 +16,7 @@ bme280: true
 rain: true
 sky: true
 wind: true
+sqm: false
 
 # --- single values (optional) ---
 sensor_temperature: true
@@ -28,6 +29,9 @@ sensor_sky_delta: true
 sensor_cloud_cover: true
 sensor_wind_speed: true
 sensor_wind_gust: false       # not reported
+sensor_sky_quality: true
+sensor_sky_illuminance: true
+sensor_sky_luminance: true
 
 # --- I2C bus ---
 pin_sda: 21

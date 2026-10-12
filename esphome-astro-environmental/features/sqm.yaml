@@ -1,0 +1,223 @@
+# =========================================================
+# FEATURE: SKY QUALITY (TSL2591 light sensor, a "Sky Quality Meter" without lens)
+#
+# Requires the I2C bus (bus_a) of esphome-astro-environmental/hardware/hw_<hardware>_i2c.yaml.
+# Built when `sqm` is true and Sky Quality or Sky Illuminance is wanted (astro-environmental.yaml: sqm_on).
+#
+# The chip runs at its highest sensitivity at all times: gain 9500x and 600 ms integration. At dusk and by day it
+# saturates; a saturated reading is not a value (NAN), so the entities become unavailable. That is intended: a sky
+# quality by day is meaningless, and the chip does not mind (the datasheet has no illuminance limit).
+#
+# From the counts of the two channels (CH0 visible + infrared, CH1 infrared):
+#   V          = CH0 - CH1, mean of the valid readings of one minute            [Sky Light Counts]
+#   E          = (V - dark) / cpl,  cpl = 600 ms * 9500 / (53 * 7.7) counts per lux  [Sky Illuminance, lx]
+#   m          = -2.5 * log10(E / (pi * 1.08e5)) + offset                          [Sky Quality, mag/arcsec2]
+# (a uniformly bright hemisphere, L = E / pi, and L[cd/m2] = 1.08e5 * 10^(-0.4 m) as for the Unihedron SQM.)
+# The two settings in Home Assistant correct what the chip cannot know:
+#   Sky Dark Counts      the counts of the chip with no light (set by the button "Calibrate Dark Counts")
+#   Sky Quality Offset   brings the value to a reference device (also takes up window, diffuser and filter)
+# The calculation uses the counts, not the lux of the component: the dark counts can only be subtracted exactly
+# from a linear value, and the component's visible channel is clamped at 0, which would bias a dark reading.
+# =========================================================
+
+globals:
+  # Dark calibration: collects ten one-minute values while the sensor is covered
+  - id: sqm_cal_active
+    type: bool
+    initial_value: "false"
+  - id: sqm_cal_n
+    type: int
+    initial_value: "0"
+  - id: sqm_cal_sum
+    type: float
+    initial_value: "0.0"
+
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: |-
+            id(ent_sky_dark_calibration).publish_state("idle");
+
+sensor:
+  # The chip. Both channels are read every second; the values are published in the order full spectrum, infrared.
+  - platform: tsl2591
+    i2c_id: bus_a
+    name: "Sky Light Chip"
+    gain: maximum
+    integration_time: 600ms
+    # The chip integrates all the time and every reading is the last finished integration. (In the power save mode
+    # ESPHome waits at most 620 ms for a 600 ms integration, which can take up to 630 ms.)
+    power_save_mode: false
+    update_interval: 1s
+    full_spectrum:
+      id: sqm_ch0
+      internal: true
+    infrared:
+      id: sqm_ch1
+      internal: true
+      on_value:
+        then:
+          - lambda: |-
+              // CH0 is published first, so it is the reading of this second. 65535 is the saturated reading.
+              const float full = id(sqm_ch0).state;
+              if (std::isnan(full) || full >= 65535.0f) {
+                id(sqm_counts_1s).publish_state(NAN);
+              } else {
+                id(sqm_counts_1s).publish_state(full - x);
+              }
+
+  # The counts of one second (not shown); NAN when the chip is saturated
+  - platform: template
+    id: sqm_counts_1s
+    internal: true
+    update_interval: never
+
+  # One value per minute: the mean of the valid readings (NAN is skipped; a minute of nothing but NAN is NAN)
+  - platform: copy
+    source_id: sqm_counts_1s
+    name: "Sky Light Counts"
+    id: ent_sky_light_counts
+    icon: "mdi:counter"
+    entity_category: diagnostic
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - throttle_average: 60s
+    on_value:
+      then:
+        - lambda: |-
+            // Dark calibration: the mean of ten one-minute values. The minute that was already running when the
+            // button was pressed is discarded (the sensor may not have been covered yet).
+            if (id(sqm_cal_active)) {
+              if (std::isnan(x)) {
+                id(sqm_cal_active) = false;
+                id(ent_sky_dark_calibration).publish_state("failed: sensor saturated, is it covered?");
+              } else if (id(sqm_cal_n) < 0) {
+                id(sqm_cal_n) = 0;
+              } else {
+                id(sqm_cal_sum) += x;
+                id(sqm_cal_n) += 1;
+                if (id(sqm_cal_n) < 10) {
+                  char text[32];
+                  snprintf(text, sizeof(text), "running (%d of 10)", id(sqm_cal_n));
+                  id(ent_sky_dark_calibration).publish_state(text);
+                } else {
+                  id(sqm_cal_active) = false;
+                  float mean = id(sqm_cal_sum) / 10.0f;
+                  if (mean > 120.0f) {
+                    // the datasheet: 0 to 20 counts at 100 ms, so at most about 120 counts at 600 ms
+                    id(ent_sky_dark_calibration).publish_state("failed: more than 120 counts, light leak?");
+                  } else {
+                    if (mean < 0.0f) mean = 0.0f;
+                    id(cfg_sky_dark_counts).make_call().set_value(mean).perform();
+                    char text[32];
+                    snprintf(text, sizeof(text), "done: %.1f counts", mean);
+                    id(ent_sky_dark_calibration).publish_state(text);
+                  }
+                }
+              }
+            }
+        - script.execute: script_sqm_update
+
+  # Published by script_sqm_update (no lambda and no update interval of their own)
+  - platform: template
+    name: "Sky Illuminance"
+    id: ent_sky_illuminance
+    internal: ${ not sensor_sky_illuminance }
+    icon: "mdi:brightness-5"
+    device_class: illuminance
+    state_class: measurement
+    unit_of_measurement: "lx"
+    accuracy_decimals: 4
+    update_interval: never
+
+  - platform: template
+    name: "Sky Quality"
+    id: ent_sky_quality
+    internal: ${ not sensor_sky_quality }
+    icon: "mdi:weather-night"
+    state_class: measurement
+    unit_of_measurement: "mag/arcsec²"
+    accuracy_decimals: 2
+    update_interval: never
+
+number:
+  - platform: template
+    name: "Sky Dark Counts"
+    id: cfg_sky_dark_counts
+    icon: "mdi:contrast-circle"
+    entity_category: config
+    unit_of_measurement: "counts"
+    mode: box
+    min_value: 0
+    max_value: 1000
+    step: 0.1
+    initial_value: 0
+    restore_value: true
+    optimistic: true
+    # recalculate at once when the value is changed
+    on_value:
+      then:
+        - script.execute: script_sqm_update
+
+  # Only Sky Quality uses the offset
+  - platform: template
+    name: "Sky Quality Offset"
+    id: cfg_sky_quality_offset
+    internal: ${ not sensor_sky_quality }
+    icon: "mdi:tune"
+    entity_category: config
+    unit_of_measurement: "mag/arcsec²"
+    mode: box
+    min_value: -5
+    max_value: 5
+    step: 0.01
+    initial_value: 0
+    restore_value: true
+    optimistic: true
+    on_value:
+      then:
+        - script.execute: script_sqm_update
+
+button:
+  # Cover the sensor so that no light reaches it, then press. After about 11 minutes the mean of ten minutes is
+  # stored as Sky Dark Counts.
+  - platform: template
+    name: "Calibrate Dark Counts"
+    id: btn_sky_dark_calibrate
+    icon: "mdi:contrast"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: |-
+            id(sqm_cal_sum) = 0.0f;
+            id(sqm_cal_n) = -1;  // the minute that is running is discarded
+            id(sqm_cal_active) = true;
+            id(ent_sky_dark_calibration).publish_state("running (0 of 10)");
+
+text_sensor:
+  - platform: template
+    name: "Dark Calibration"
+    id: ent_sky_dark_calibration
+    icon: "mdi:progress-clock"
+    entity_category: diagnostic
+
+script:
+  - id: script_sqm_update
+    mode: restart
+    then:
+      - lambda: |-
+          const float counts = id(ent_sky_light_counts).state;
+          const float dark = id(cfg_sky_dark_counts).state;
+          const float offset = id(cfg_sky_quality_offset).state;
+          const float net = counts - dark;
+          // no reading (saturated), no setting yet or no light above the dark counts: no value instead of a wrong one
+          if (std::isnan(counts) || std::isnan(dark) || std::isnan(offset) || net <= 0.0f) {
+            id(ent_sky_illuminance).publish_state(NAN);
+            id(ent_sky_quality).publish_state(NAN);
+            return;
+          }
+          const float lux = net / (600.0f * 9500.0f / (53.0f * 7.7f));
+          id(ent_sky_illuminance).publish_state(lux);
+          id(ent_sky_quality).publish_state(-2.5f * log10f(lux / (3.14159265f * 1.08e5f)) + offset);

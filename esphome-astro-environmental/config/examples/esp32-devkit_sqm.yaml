@@ -1,0 +1,48 @@
+# =========================================================
+# EXAMPLE: sky quality sensor (TSL2591) with the BME280 on the same I2C bus
+#
+# The TSL2591 answers at 0x29 (fixed). It runs at its highest sensitivity; by day and at dusk it is saturated and
+# Sky Quality, Sky Illuminance and Sky Luminance are unavailable (intended). After mounting, cover the sensor and
+# press "Calibrate Dark Counts" in Home Assistant, then set "Sky Quality Offset" against a reference device.
+# Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
+# =========================================================
+
+# --- device ---
+name: astro-environmental
+log_level: INFO
+hardware: esp32_devkit
+
+# --- hardware ---
+bme280: true
+rain: false
+sky: false
+wind: false
+sqm: true
+
+# --- single values (optional) ---
+sensor_temperature: true
+sensor_humidity: true
+sensor_pressure: true
+sensor_dew_point: true
+sensor_sky_temperature: true
+sensor_sky_ambient: true
+sensor_sky_delta: true
+sensor_cloud_cover: true
+sensor_wind_speed: true
+sensor_wind_gust: true
+sensor_sky_quality: true
+sensor_sky_illuminance: true
+sensor_sky_luminance: true
+
+# --- I2C bus (BME280 and TSL2591) ---
+pin_sda: 21
+pin_scl: 22
+i2c_frequency: 100kHz
+bme280_address: "0x76"
+mlx90614_address: "0x5A"
+
+# --- inputs ---
+pin_rain: none
+rain_inverted: true
+pin_wind: none
+wind_filter: 5ms

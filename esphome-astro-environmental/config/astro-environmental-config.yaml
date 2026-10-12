@@ -20,11 +20,13 @@ bme280: true                  # BME280 chip: temperature, humidity, pressure and
 rain: true                    # rain sensor module with a digital output (one value: Rain)
 sky: true                     # MLX90614 infrared thermometer: sky temperature, delta, cloud cover
 wind: true                    # anemometer with a reed contact (pulse counting)
+sqm: false                    # TSL2591 light sensor on the I2C bus: sky quality (SQM), illuminance, luminance
 
 # --- single values (optional): built when their hardware above is true and the switch is true ---
 # A value that is switched off is not reported to Home Assistant, and everything that is calculated from it is not
 # built either: Dew Point needs Temperature and Humidity, Sky Temperature Delta needs Sky Temperature and Sky Sensor
-# Ambient, Cloud Cover needs Sky Temperature Delta. Hardware whose values are all off is not built at all.
+# Ambient, Cloud Cover needs Sky Temperature Delta, Sky Luminance needs Sky Quality. Hardware whose values are all
+# off is not built at all.
 sensor_temperature: true      # BME280
 sensor_humidity: true         # BME280
 sensor_pressure: true         # BME280
@@ -35,8 +37,11 @@ sensor_sky_delta: true        # sky temperature minus housing temperature
 sensor_cloud_cover: true      # cloud cover in % calculated from the delta
 sensor_wind_speed: true       # mean of 60 s
 sensor_wind_gust: true        # maximum of 10 min
+sensor_sky_quality: true      # TSL2591: mag/arcsec2, one value per minute
+sensor_sky_illuminance: true  # TSL2591: lx, from the same counts
+sensor_sky_luminance: true    # mcd/m2, calculated from the sky quality
 
-# --- I2C bus (BME280 and MLX90614) ---
+# --- I2C bus (BME280, MLX90614 and TSL2591; the TSL2591 answers at 0x29, fixed) ---
 pin_sda: 21                   # GPIO number
 pin_scl: 22                   # GPIO number
 i2c_frequency: 50kHz          # slow on purpose: the sensor head is usually on a long cable
