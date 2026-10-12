@@ -205,7 +205,18 @@ The sky is taken as a uniformly bright hemisphere (`L = E / pi`) and `L [cd/m2] 
 
 The calibration stops with a message if a minute is saturated (`failed: sensor saturated, is it covered?`) or if the mean is more than 120 counts away from zero (`failed: more than 120 counts from zero, light leak?`). The datasheet gives 0 to 20 counts per channel at 100 ms; at 600 ms the difference of the channels is within about ±120. The mean may well be slightly negative (the infrared channel reads a little higher than the full channel in the dark); it is stored as it is, because the same offset is in every reading of the sky. Without a dark calibration the dark counts are read as light and the sky looks too bright. You can also enter *Sky Dark Counts* by hand.
 
-**Offset.** Put the station next to a reference device (for example a Sky Quality Meter) under the same sky and change **Sky Quality Offset** until the values agree; check it at two brightnesses. Moving the offset by 0.1 mag/arcsec² scales the light by 10 %.
+**Offset.** The offset is **added** to the calculated magnitude, so it is the difference between a reference device (for example a Unihedron Sky Quality Meter) and the station:
+
+```
+Sky Quality Offset = reading of the reference - Sky Quality of the station      (with the offset still at 0)
+```
+
+1. Do the dark calibration first (the offset only corrects what is left).
+2. At night, outdoors and away from lamps, put the station and the reference next to each other, both looking at the zenith.
+3. Take the mean of several one-minute values of the station and the reading of the reference at the same time, and enter the difference as **Sky Quality Offset**.
+4. Check it at a second brightness (for example in moonlight or at the end of the twilight, as long as the chip is not saturated).
+
+Moving the offset by 0.1 mag/arcsec² scales the light by 10 %. Two things limit it: the reference looks at about 20 degrees around the zenith and the station at the whole hemisphere, so a few tenths of a magnitude remain and the offset is strictly valid for the kind of sky it was set under. And do not set it indoors with lamps or LEDs: their spectrum and their point sources differ from the night sky, and the offset would be wrong for the sky.
 
 **Limits** (calculated from the datasheet, not measured on a device yet):
 
