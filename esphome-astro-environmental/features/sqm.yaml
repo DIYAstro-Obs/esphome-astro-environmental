@@ -23,7 +23,7 @@
 # =========================================================
 
 globals:
-  # Dark calibration: collects ten one-minute values while the sensor is covered
+  # Dark calibration: collects three one-minute values while the sensor is covered
   - id: sqm_cal_active
     type: bool
     initial_value: "false"
@@ -89,8 +89,9 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            // Dark calibration: the mean of ten one-minute values. The minute that was already running when the
-            // button was pressed is discarded (the sensor may not have been covered yet).
+            // Dark calibration: the mean of three one-minute values (the random error of the mean is about 0.06
+            // counts). The minute that was already running when the button was pressed is discarded (the sensor
+            // may not have been covered yet).
             if (id(sqm_cal_active)) {
               if (std::isnan(x)) {
                 id(sqm_cal_active) = false;
@@ -100,13 +101,15 @@ sensor:
               } else {
                 id(sqm_cal_sum) += x;
                 id(sqm_cal_n) += 1;
-                if (id(sqm_cal_n) < 10) {
-                  char text[32];
-                  snprintf(text, sizeof(text), "running (%d of 10)", id(sqm_cal_n));
+                if (id(sqm_cal_n) < 3) {
+                  // the mean so far is shown while the calibration runs
+                  char text[48];
+                  snprintf(text, sizeof(text), "running (%d of 3): mean %.1f counts", id(sqm_cal_n),
+                           id(sqm_cal_sum) / id(sqm_cal_n));
                   id(ent_sky_dark_calibration).publish_state(text);
                 } else {
                   id(sqm_cal_active) = false;
-                  float mean = id(sqm_cal_sum) / 10.0f;
+                  float mean = id(sqm_cal_sum) / 3.0f;
                   if (mean > 120.0f || mean < -120.0f) {
                     // the datasheet: each channel 0 to 20 counts at 100 ms, so the difference is within about
                     // +-120 counts at 600 ms; more is a light leak or a defect. A slightly negative mean is normal.
@@ -183,7 +186,7 @@ number:
         - script.execute: script_sqm_update
 
 button:
-  # Cover the sensor so that no light reaches it, then press. After about 11 minutes the mean of ten minutes is
+  # Cover the sensor so that no light reaches it, then press. After about 4 minutes the mean of three minutes is
   # stored as Sky Dark Counts.
   - platform: template
     name: "Calibrate Dark Counts"
@@ -196,7 +199,7 @@ button:
             id(sqm_cal_sum) = 0.0f;
             id(sqm_cal_n) = -1;  // the minute that is running is discarded
             id(sqm_cal_active) = true;
-            id(ent_sky_dark_calibration).publish_state("running (0 of 10)");
+            id(ent_sky_dark_calibration).publish_state("running (0 of 3)");
 
 text_sensor:
   - platform: template

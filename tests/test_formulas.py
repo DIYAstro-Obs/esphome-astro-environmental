@@ -30,6 +30,7 @@ def wind_speed_kmh(pulses_per_minute: float, pulses_per_revolution: float, kmh_p
 # TSL2591 at gain 9500x and 600 ms integration, device factor 53 and glass attenuation 7.7 (the ESPHome defaults)
 COUNTS_PER_LUX = 600.0 * 9500.0 / (53.0 * 7.7)
 DARK_LIMIT = 120.0  # the datasheet: 0 to 20 counts at 100 ms, so at most about 120 counts at 600 ms
+CALIBRATION_MINUTES = 3  # the random error of the mean is about 0.06 counts (readings scatter by about 0.75 per second)
 
 
 def illuminance_lux(counts: float, dark: float) -> float:
@@ -50,18 +51,23 @@ def sky_luminance_mcd(magnitude: float) -> float:
 
 def dark_calibration(minutes: list) -> "tuple[str, float | None]":
     """The rule of the "Calibrate Dark Counts" button: the minute that was already running is discarded, the mean of
-    the next ten minutes is stored as it is (the difference of the channels is slightly negative in the dark, and
+    the next three minutes is stored as it is (the difference of the channels is slightly negative in the dark, and
     the same offset is in every reading of the sky); a saturated minute (None) or a mean more than the datasheet
     limit away from zero is a failure."""
-    values = minutes[1:11]
-    if len(values) < 10:
+    values = minutes[1:1 + CALIBRATION_MINUTES]
+    if len(values) < CALIBRATION_MINUTES:
         return "running", None
     if any(v is None for v in values):
         return "failed: saturated", None
-    mean = sum(values) / 10.0
+    mean = sum(values) / float(CALIBRATION_MINUTES)
     if abs(mean) > DARK_LIMIT:
         return "failed: light leak", None
     return "done", mean
+
+
+def calibration_progress_text(values_so_far: list) -> str:
+    """The text while the calibration runs: how many minutes and the mean so far."""
+    return f"running ({len(values_so_far)} of {CALIBRATION_MINUTES}): mean {sum(values_so_far) / len(values_so_far):.1f} counts"
 
 
 @pytest.mark.parametrize(
@@ -183,24 +189,29 @@ def test_luminance_and_illuminance_agree_for_a_uniform_hemisphere():
         assert luminance_cd == pytest.approx(lux / math.pi, rel=1e-6)
 
 
-def test_dark_calibration_discards_the_running_minute_and_takes_the_mean_of_ten():
-    minutes = [500.0] + [10.0, 12.0, 8.0, 10.0, 11.0, 9.0, 10.0, 10.0, 12.0, 8.0]  # the first one was not covered
+def test_dark_calibration_discards_the_running_minute_and_takes_the_mean_of_three():
+    minutes = [500.0] + [10.0, 12.0, 8.0]  # the first one was not covered
     assert dark_calibration(minutes) == ("done", pytest.approx(10.0))
-    assert dark_calibration(minutes[:6])[0] == "running"
+    assert dark_calibration(minutes[:3])[0] == "running"
+
+
+def test_the_status_text_shows_the_mean_so_far():
+    assert calibration_progress_text([-0.4]) == "running (1 of 3): mean -0.4 counts"
+    assert calibration_progress_text([-0.4, -0.6]) == "running (2 of 3): mean -0.5 counts"
 
 
 def test_dark_calibration_fails_with_light():
-    saturated = [10.0] + [10.0] * 4 + [None] + [10.0] * 5
+    saturated = [10.0] + [10.0, None, 10.0]
     assert dark_calibration(saturated)[0] == "failed: saturated"
-    assert dark_calibration([0.0] + [130.0] * 10)[0] == "failed: light leak"
-    assert dark_calibration([0.0] + [120.0] * 10) == ("done", pytest.approx(120.0))
-    assert dark_calibration([0.0] + [-130.0] * 10)[0] == "failed: light leak"
-    assert dark_calibration([0.0] + [-120.0] * 10) == ("done", pytest.approx(-120.0))
+    assert dark_calibration([0.0] + [130.0] * 3)[0] == "failed: light leak"
+    assert dark_calibration([0.0] + [120.0] * 3) == ("done", pytest.approx(120.0))
+    assert dark_calibration([0.0] + [-130.0] * 3)[0] == "failed: light leak"
+    assert dark_calibration([0.0] + [-120.0] * 3) == ("done", pytest.approx(-120.0))
 
 
 def test_a_slightly_negative_dark_mean_is_stored_as_it_is():
     # the log of a real module in the dark: full 3..5, infrared 3..6, so the difference is about -0.5
-    assert dark_calibration([0.0] + [-0.4] * 10) == ("done", pytest.approx(-0.4))
+    assert dark_calibration([0.0] + [-0.4] * 3) == ("done", pytest.approx(-0.4))
 
 
 def test_a_negative_dark_value_does_not_make_the_sky_darker():
@@ -263,8 +274,9 @@ def test_the_sky_luminance_lambda_uses_the_documented_expression():
 def test_the_dark_calibration_uses_the_documented_rule():
     text = read("sqm.yaml")
     assert "id(sqm_cal_n) = -1;" in text                 # the minute that is running is discarded
-    assert "id(sqm_cal_n) < 10" in text                  # ten minutes
-    assert "id(sqm_cal_sum) / 10.0f" in text             # the mean
+    assert "id(sqm_cal_n) < 3" in text                   # three minutes
+    assert "id(sqm_cal_sum) / 3.0f" in text              # the mean
+    assert '"running (%d of 3): mean %.1f counts"' in text  # the mean so far is shown while it runs
     assert "mean > 120.0f || mean < -120.0f" in text     # the limit of the datasheet at 600 ms, both ways
     assert "mean = 0.0f" not in text                     # a negative mean is stored as it is
     assert "std::isnan(x)" in text                       # a saturated minute fails

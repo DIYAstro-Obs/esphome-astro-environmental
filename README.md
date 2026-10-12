@@ -135,7 +135,7 @@ A wrong value stops the build with an error that names the problem (`CONFIG_ERRO
 | Sky Illuminance | lx | TSL2591, from the same counts |
 | Sky Luminance | mcd/m² | calculated from the Sky Quality |
 | Sky Light Counts | counts | diagnostic: the mean of one minute (visible channel minus infrared channel), before the dark counts are subtracted |
-| Dark Calibration | text | diagnostic: `idle`, `running (n of 10)`, `done: x.x counts` or `failed: ...` |
+| Dark Calibration | text | diagnostic: `idle`, `running (n of 3): mean x.x counts`, `done: x.x counts` or `failed: ...` |
 
 Settings in Home Assistant (entity category *config*, they survive a restart and a power cut):
 
@@ -199,8 +199,8 @@ The sky is taken as a uniformly bright hemisphere (`L = E / pi`) and `L [cd/m2] 
 **Dark calibration** (once after mounting, again when the temperature range changes):
 
 1. Cover the sensor so that no light reaches it (a cap, black tape), at the place and, if possible, at the temperature of the measurement.
-2. Press **Calibrate Dark Counts** in Home Assistant. *Dark Calibration* shows `running (n of 10)`.
-3. After about 11 minutes the mean of ten one-minute values is stored in **Sky Dark Counts** and *Dark Calibration* shows `done: x.x counts`. The minute that was running when you pressed the button is discarded.
+2. Press **Calibrate Dark Counts** in Home Assistant. *Dark Calibration* shows `running (n of 3): mean x.x counts`, with the mean so far.
+3. After about 4 minutes the mean of three one-minute values is stored in **Sky Dark Counts** and *Dark Calibration* shows `done: x.x counts`. The minute that was running when you pressed the button is discarded. Three minutes are enough: the random error of the mean is about 0.06 counts (the readings scatter by about 0.75 counts per second); what a longer measurement cannot catch is the drift of the dark counts with the temperature.
 4. Take the cover off.
 
 The calibration stops with a message if a minute is saturated (`failed: sensor saturated, is it covered?`) or if the mean is more than 120 counts away from zero (`failed: more than 120 counts from zero, light leak?`). The datasheet gives 0 to 20 counts per channel at 100 ms; at 600 ms the difference of the channels is within about ±120. The mean may well be slightly negative (the infrared channel reads a little higher than the full channel in the dark); it is stored as it is, because the same offset is in every reading of the sky. Without a dark calibration the dark counts are read as light and the sky looks too bright. You can also enter *Sky Dark Counts* by hand.
