@@ -77,7 +77,9 @@ def exposed_entities(config: dict) -> set:
 
     def walk(node):
         if isinstance(node, dict):
-            if isinstance(node.get("name"), str) and node.get("internal") is not True:
+            # (the name of the tsl2591 platform itself is a label for the log, not an entity)
+            if (isinstance(node.get("name"), str) and node.get("internal") is not True
+                    and node.get("platform") != "tsl2591"):
                 names.add(node["name"])
             for value in node.values():
                 walk(value)
@@ -85,14 +87,15 @@ def exposed_entities(config: dict) -> set:
             for item in node:
                 walk(item)
 
-    for domain in ("sensor", "binary_sensor", "number", "text_sensor", "switch"):
+    for domain in ("sensor", "binary_sensor", "number", "text_sensor", "switch", "button"):
         walk(config.get(domain))
     return names
 
 
 NOT_USABLE = "CONFIG_ERROR_a_pin_is_not_a_usable_gpio_number_of_this_board_or_none_for_a_sensor_that_is_built"
 SWITCHES = ["sensor_temperature", "sensor_humidity", "sensor_pressure", "sensor_dew_point", "sensor_sky_temperature",
-            "sensor_sky_ambient", "sensor_sky_delta", "sensor_cloud_cover", "sensor_wind_speed", "sensor_wind_gust"]
+            "sensor_sky_ambient", "sensor_sky_delta", "sensor_cloud_cover", "sensor_wind_speed", "sensor_wind_gust",
+            "sensor_sky_quality", "sensor_sky_illuminance", "sensor_sky_luminance"]
 
 INVALID = [
     ({"log_level": "TRACE"}, "CONFIG_ERROR_log_level_must_be_DEBUG_or_INFO_or_WARN"),
@@ -100,15 +103,23 @@ INVALID = [
     ({"rain": "maybe"}, "CONFIG_ERROR_rain_must_be_true_or_false"),
     ({"sky": "maybe"}, "CONFIG_ERROR_sky_must_be_true_or_false"),
     ({"wind": "maybe"}, "CONFIG_ERROR_wind_must_be_true_or_false"),
+    ({"sqm": "maybe"}, "CONFIG_ERROR_sqm_must_be_true_or_false"),
     ({"rain_inverted": "sometimes"}, "CONFIG_ERROR_rain_inverted_must_be_true_or_false"),
     ({"sensor_pressure": "sometimes"}, "CONFIG_ERROR_a_sensor_switch_must_be_true_or_false"),
     ({"sensor_wind_gust": "sometimes"}, "CONFIG_ERROR_a_sensor_switch_must_be_true_or_false"),
+    ({"sensor_sky_quality": "sometimes"}, "CONFIG_ERROR_a_sensor_switch_must_be_true_or_false"),
+    ({"sensor_sky_luminance": "sometimes"}, "CONFIG_ERROR_a_sensor_switch_must_be_true_or_false"),
     (
         {"bme280": "false", "rain": "false", "sky": "false", "wind": "false"},
         "CONFIG_ERROR_at_least_one_sensor_must_be_built",
     ),
     (
         {"rain": "false", **{key: "false" for key in SWITCHES}},
+        "CONFIG_ERROR_at_least_one_sensor_must_be_built",
+    ),
+    (  # the TSL2591 is the only hardware, and both of its values are switched off
+        {"bme280": "false", "rain": "false", "sky": "false", "wind": "false", "sqm": "true",
+         "sensor_sky_quality": "false", "sensor_sky_illuminance": "false"},
         "CONFIG_ERROR_at_least_one_sensor_must_be_built",
     ),
     ({"pin_rain": 6}, NOT_USABLE),  # flash
@@ -120,6 +131,8 @@ INVALID = [
     ({"pin_sda": 34}, "CONFIG_ERROR_pin_sda_and_pin_scl_must_not_be_an_input_only_gpio_34_to_39"),
     ({"bme280_address": "0x78"}, "CONFIG_ERROR_bme280_address_must_be_0x76_or_0x77"),
     ({"mlx90614_address": "5A"}, "CONFIG_ERROR_mlx90614_address_must_look_like_0x5A"),
+    # the TSL2591 answers at 0x29 and cannot be moved
+    ({"sqm": "true", "mlx90614_address": "0x29"}, "CONFIG_ERROR_mlx90614_address_0x29_is_taken_by_the_tsl2591"),
 ]
 
 
@@ -143,6 +156,9 @@ CLOUD_SETTINGS = {"Cloud Clear Delta", "Cloud Overcast Delta"}
 WIND = {"Wind Speed", "Wind Gust"}
 WIND_SETTINGS = {"Wind Pulses per Revolution", "Wind Speed per Revolution per Second"}
 RAIN = {"Rain"}
+SQM_VALUES = {"Sky Quality", "Sky Illuminance", "Sky Luminance", "Sky Light Counts"}
+SQM_SETTINGS = {"Sky Dark Counts", "Sky Quality Offset", "Calibrate Dark Counts", "Dark Calibration"}
+SQM = SQM_VALUES | SQM_SETTINGS
 DIAGNOSTIC = {"Free Heap", "Min Free Heap", "Uptime", "Reset Reason", "WiFi RSSI", "IP Address", "WiFi SSID",
               "WiFi BSSID"}
 ALL = BME | SKY | CLOUD_SETTINGS | WIND | WIND_SETTINGS | RAIN
@@ -184,6 +200,18 @@ VALID = [
                  id="delta-off-takes-cloud-cover"),
     pytest.param({"bme280": "false", "sensor_dew_point": "true"}, EVERYTHING - BME,
                  id="dew-point-needs-its-group"),
+    # the TSL2591 (sky quality): off by default
+    pytest.param({"sqm": "true"}, EVERYTHING | SQM, id="sqm-on"),
+    pytest.param({"sqm": "true", "sensor_sky_luminance": "false"}, EVERYTHING | SQM - {"Sky Luminance"},
+                 id="sky-luminance-off"),
+    pytest.param({"sqm": "true", "sensor_sky_illuminance": "false"}, EVERYTHING | SQM - {"Sky Illuminance"},
+                 id="sky-illuminance-off"),
+    pytest.param({"sqm": "true", "sensor_sky_quality": "false"},
+                 EVERYTHING | SQM - {"Sky Quality", "Sky Luminance", "Sky Quality Offset"},
+                 id="sky-quality-off-takes-luminance-and-offset"),
+    pytest.param({"sqm": "true", "sensor_sky_quality": "false", "sensor_sky_illuminance": "false"}, EVERYTHING,
+                 id="no-sqm-value-built-no-chip-no-settings"),
+    pytest.param({"sqm": "false", "sensor_sky_quality": "true"}, EVERYTHING, id="sqm-values-need-their-hardware"),
 ]
 
 
@@ -207,6 +235,33 @@ def test_without_a_sensor_on_the_bus_there_is_no_i2c_bus(tmp_path):
     config = load_config(output)
     assert "i2c" not in config
     assert exposed_entities(config) - DIAGNOSTIC == RAIN | WIND | WIND_SETTINGS
+
+
+def _tsl2591(config: dict) -> "dict | None":
+    return next((s for s in config.get("sensor", []) if s.get("platform") == "tsl2591"), None)
+
+
+def test_the_sqm_alone_sets_up_the_i2c_bus_with_the_chip_at_its_highest_sensitivity(tmp_path):
+    overrides = {"sqm": "true", "bme280": "false", "sky": "false", "rain": "false", "wind": "false",
+                 "pin_rain": "none", "pin_wind": "none"}
+    code, output = run_config(tmp_path, overrides)
+    assert code == 0, output[-2500:]
+    config = load_config(output)
+    assert "i2c" in config
+    assert exposed_entities(config) - DIAGNOSTIC == SQM
+    chip = _tsl2591(config)
+    assert chip is not None
+    # the maximum sensitivity, always: the gain AUTO would change the scale (and the dark counts) while it runs
+    assert str(chip["gain"]).upper() in ("MAXIMUM", "MAX")
+    assert chip["integration_time"] in (600, "600ms")
+    assert chip["power_save_mode"] is False  # a 600 ms integration can take 630 ms, more than the 620 ms ESPHome waits
+    assert chip["update_interval"] == "1s"
+
+
+def test_without_the_sqm_there_is_no_chip(tmp_path):
+    code, output = run_config(tmp_path, {})
+    assert code == 0, output[-2500:]
+    assert _tsl2591(load_config(output)) is None
 
 
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda p: p.stem)
