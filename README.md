@@ -13,6 +13,10 @@ ESPHome firmware for an environment station of an astronomical observatory on an
 - WiFi, encrypted API and OTA, web interface with login, health sensors of the ESP32 and the WiFi link.
 - One flat configuration file whose wrong values stop the build with a message that names the problem.
 
+## Status
+
+This project is provided **as is**, without warranty (see the [license](#license)). It has been tested in the lab, on the bench; it has **not yet been used in an observatory**. Check the values, the wiring and the calibrations in your own setup before you rely on them.
+
 ## Project Structure
 
 ```
@@ -218,7 +222,7 @@ Sky Quality Offset = reading of the reference - Sky Quality of the station      
 
 Moving the offset by 0.1 mag/arcsec² scales the light by 10 %. Two things limit it: the reference looks at about 20 degrees around the zenith and the station at the whole hemisphere, so a few tenths of a magnitude remain and the offset is strictly valid for the kind of sky it was set under. And do not set it indoors with lamps or LEDs: their spectrum and their point sources differ from the night sky, and the offset would be wrong for the sky.
 
-**Limits** (calculated from the datasheet, not measured on a device yet):
+**Limits** (calculated from the datasheet; there are bench readings only, none under a night sky yet):
 
 - **Where it is useful.** About up to SQM 20.3 (Bortle 5, a suburban sky) the signal is far above the noise and the dark counts. From Bortle 4 downwards (SQM above about 20.8) the dark counts of the individual chip and their drift with the temperature decide: the datasheet gives 0 to 20 counts at 100 ms at 25 °C, no typical value and no temperature curve, and a dark rural sky is only about 8 to 20 counts of signal. There it is good for trends and changes (clouds, moon, twilight, the haze of a light dome), not for absolute values.
 - **Accuracy.** Even with calibration expect a few tenths of a magnitude in absolute terms; a Sky Quality Meter is specified to 0.1 mag/arcsec² per device.
@@ -234,7 +238,7 @@ Moving the offset by 0.1 mag/arcsec² scales the light by 10 %. Two things limit
 - Long cables to the sensor head: keep the I2C frequency low, and add an RC filter (for example 10 kΩ and 100 nF) at the reed contact input.
 - The rain input has the internal pull-up (about 45 kΩ), so a potential-free relay contact to GND or an open-collector output needs no resistor; a module with a push-pull output or its own pull-up works as well. A module whose output goes HIGH when wet needs `rain_inverted: false`. For a long cable add an RC filter at the input (for example 10 kΩ to 3.3 V and 100 nF to GND), as for the reed contact.
 - The TSL2591 module has to run from 3.3 V (the chip allows 2.7 to 3.6 V). Keep it out of direct light from lamps and give it a clear view of the sky; a window or diffuser in front of it only changes the offset.
-- Not tested on a real device yet: measured values, wiring and the calibration of the cloud limits, the wind factor, the dark counts and the sky quality offset are yours to verify.
+- Tested on the bench only, not in an observatory yet (see [Status](#status)): measured values, wiring and the calibration of the cloud limits, the wind factor, the dark counts and the sky quality offset are yours to verify at the place of use.
 
 ## Network
 
