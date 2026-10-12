@@ -131,7 +131,7 @@ A wrong value stops the build with an error that names the problem (`CONFIG_ERRO
 | Cloud Cover | % | estimated from the delta, see below |
 | Wind Speed | km/h | mean of the last 60 s |
 | Wind Gust | km/h | maximum of the 3 s values of the last 10 min |
-| Sky Quality | mag/arcsec² | TSL2591, one value per minute; unavailable when the chip is saturated (dusk, day) |
+| Sky Quality | mag/arcsec² | TSL2591, one value per minute; unknown (no value) when the chip is saturated (dusk, day) or sees no light above the dark counts |
 | Sky Illuminance | lx | TSL2591, from the same counts |
 | Sky Luminance | mcd/m² | calculated from the Sky Quality |
 | Sky Light Counts | counts | diagnostic: the mean of one minute (visible channel minus infrared channel), before the dark counts are subtracted |
@@ -145,7 +145,7 @@ Settings in Home Assistant (entity category *config*, they survive a restart and
 | Cloud Overcast Delta | -8 °C | at this delta the sky counts as overcast (100 %) |
 | Wind Pulses per Revolution | 1 | pulses of the reed contact per revolution |
 | Wind Speed per Revolution per Second | 2.4 km/h | speed of one revolution per second (the usual value of the cheap anemometers of the Misol / Froggit / Ecowitt type) |
-| Sky Dark Counts | 0 | the counts of the TSL2591 with no light; set by the button below or by hand (0 to 1000) |
+| Sky Dark Counts | 0 | the counts of the TSL2591 with no light (visible minus infrared channel, so slightly negative in the dark is normal); set by the button below or by hand (-120 to 1000) |
 | Calibrate Dark Counts | (button) | starts the dark calibration, see [Sky Quality](#sky-quality-sqm) |
 | Sky Quality Offset | 0 mag/arcsec² | added to the Sky Quality; brings it to a reference device (-5 to +5) |
 
@@ -194,7 +194,7 @@ L   = 1000 * 1.08e5 * 10^(-0.4 * m)              mcd/m2               (Sky Lumin
 
 The sky is taken as a uniformly bright hemisphere (`L = E / pi`) and `L [cd/m2] = 1.08e5 * 10^(-0.4 m)` is the conversion of Unihedron. The offset takes up everything that differs: a window, a diffuser or a filter in front of the chip, the sensitivity of the individual chip and the approximation of the hemisphere.
 
-**By day and at dusk the chip is saturated.** At this sensitivity it is full somewhere around a few lux (the exact value depends on the chip). A saturated reading is not a value: Sky Quality, Sky Illuminance and Sky Luminance are unavailable until the sky is dark again. That is intended, and the datasheet names no illuminance limit that could harm the chip. A lamp that shines on the sensor saturates it as well, so shield it.
+**By day and at dusk the chip is saturated.** At this sensitivity it is full somewhere around a few lux (the exact value depends on the chip). A saturated reading is not a value: Sky Quality, Sky Illuminance and Sky Luminance are *unknown* in Home Assistant until the sky is dark again. That is intended, and the datasheet names no illuminance limit that could harm the chip. A lamp that shines on the sensor saturates it as well, so shield it. There is no value either when the chip sees no light above the dark counts (for example in a dark room or with the cover on): the result would be a magnitude of nothing.
 
 **Dark calibration** (once after mounting, again when the temperature range changes):
 
@@ -203,7 +203,7 @@ The sky is taken as a uniformly bright hemisphere (`L = E / pi`) and `L [cd/m2] 
 3. After about 11 minutes the mean of ten one-minute values is stored in **Sky Dark Counts** and *Dark Calibration* shows `done: x.x counts`. The minute that was running when you pressed the button is discarded.
 4. Take the cover off.
 
-The calibration stops with a message if a minute is saturated (`failed: sensor saturated, is it covered?`) or if the mean is above 120 counts (`failed: more than 120 counts, light leak?`). The datasheet gives 0 to 20 counts at 100 ms; at 600 ms that is at most about 120. Without a dark calibration the dark counts are read as light and the sky looks too bright. You can also enter *Sky Dark Counts* by hand.
+The calibration stops with a message if a minute is saturated (`failed: sensor saturated, is it covered?`) or if the mean is more than 120 counts away from zero (`failed: more than 120 counts from zero, light leak?`). The datasheet gives 0 to 20 counts per channel at 100 ms; at 600 ms the difference of the channels is within about ±120. The mean may well be slightly negative (the infrared channel reads a little higher than the full channel in the dark); it is stored as it is, because the same offset is in every reading of the sky. Without a dark calibration the dark counts are read as light and the sky looks too bright. You can also enter *Sky Dark Counts* by hand.
 
 **Offset.** Put the station next to a reference device (for example a Sky Quality Meter) under the same sky and change **Sky Quality Offset** until the values agree; check it at two brightnesses. Moving the offset by 0.1 mag/arcsec² scales the light by 10 %.
 

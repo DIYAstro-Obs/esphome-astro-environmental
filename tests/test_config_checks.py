@@ -257,6 +257,9 @@ def test_the_sqm_alone_sets_up_the_i2c_bus_with_the_chip_at_its_highest_sensitiv
     assert chip["integration_time"] in (600, "600ms")
     assert chip["power_save_mode"] is False  # a 600 ms integration can take 630 ms, more than the 620 ms ESPHome waits
     assert chip["update_interval"] == "1s"
+    # the difference of the channels is slightly negative in the dark, so the dark counts may be below 0
+    dark = next(n for n in config["number"] if n.get("name") == "Sky Dark Counts")
+    assert dark["min_value"] == -120 and dark["max_value"] == 1000
 
 
 def _binary_sensor(config: dict, name: str) -> "dict | None":

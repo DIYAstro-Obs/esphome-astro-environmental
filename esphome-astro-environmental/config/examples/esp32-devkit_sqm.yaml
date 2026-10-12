@@ -2,7 +2,7 @@
 # EXAMPLE: sky quality sensor (TSL2591) with the BME280 on the same I2C bus
 #
 # The TSL2591 answers at 0x29 (fixed). It runs at its highest sensitivity; by day and at dusk it is saturated and
-# Sky Quality, Sky Illuminance and Sky Luminance are unavailable (intended). After mounting, cover the sensor and
+# Sky Quality, Sky Illuminance and Sky Luminance are unknown (intended). After mounting, cover the sensor and
 # press "Calibrate Dark Counts" in Home Assistant, then set "Sky Quality Offset" against a reference device.
 # Copy the file over esphome-astro-environmental/config/astro-environmental-config.yaml.
 # =========================================================

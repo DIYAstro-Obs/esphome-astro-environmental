@@ -50,17 +50,18 @@ def sky_luminance_mcd(magnitude: float) -> float:
 
 def dark_calibration(minutes: list) -> "tuple[str, float | None]":
     """The rule of the "Calibrate Dark Counts" button: the minute that was already running is discarded, the mean of
-    the next ten minutes is stored; a saturated minute (None) or a mean above the datasheet limit is a failure,
-    a negative mean is stored as 0."""
+    the next ten minutes is stored as it is (the difference of the channels is slightly negative in the dark, and
+    the same offset is in every reading of the sky); a saturated minute (None) or a mean more than the datasheet
+    limit away from zero is a failure."""
     values = minutes[1:11]
     if len(values) < 10:
         return "running", None
     if any(v is None for v in values):
         return "failed: saturated", None
     mean = sum(values) / 10.0
-    if mean > DARK_LIMIT:
+    if abs(mean) > DARK_LIMIT:
         return "failed: light leak", None
-    return "done", max(mean, 0.0)
+    return "done", mean
 
 
 @pytest.mark.parametrize(
@@ -193,10 +194,27 @@ def test_dark_calibration_fails_with_light():
     assert dark_calibration(saturated)[0] == "failed: saturated"
     assert dark_calibration([0.0] + [130.0] * 10)[0] == "failed: light leak"
     assert dark_calibration([0.0] + [120.0] * 10) == ("done", pytest.approx(120.0))
+    assert dark_calibration([0.0] + [-130.0] * 10)[0] == "failed: light leak"
+    assert dark_calibration([0.0] + [-120.0] * 10) == ("done", pytest.approx(-120.0))
 
 
-def test_a_negative_dark_mean_is_stored_as_zero():
-    assert dark_calibration([0.0] + [-0.4] * 10) == ("done", 0.0)
+def test_a_slightly_negative_dark_mean_is_stored_as_it_is():
+    # the log of a real module in the dark: full 3..5, infrared 3..6, so the difference is about -0.5
+    assert dark_calibration([0.0] + [-0.4] * 10) == ("done", pytest.approx(-0.4))
+
+
+def test_a_negative_dark_value_does_not_make_the_sky_darker():
+    # measured V of a faint sky = signal + (-0.5); with the dark value stored as it is, the signal comes back
+    dark = -0.5
+    assert sky_quality(5.0 + dark, dark) == pytest.approx(sky_quality(5.0, 0.0))
+    # a dark value clamped to 0 would have given a signal 10 % too small, about 0.1 mag too faint
+    assert sky_quality(5.0 + dark, 0.0) - sky_quality(5.0, 0.0) == pytest.approx(0.11, abs=0.02)
+
+
+def test_no_light_above_the_dark_counts_in_a_dark_room_is_no_value():
+    # the same module with the cover on: the mean of the difference is below the stored dark value or equal to it
+    assert math.isnan(sky_quality(-0.5, -0.4))
+    assert math.isnan(sky_quality(-0.5, 0.0))
 
 
 # --- the YAML has to say the same ---
@@ -247,7 +265,8 @@ def test_the_dark_calibration_uses_the_documented_rule():
     assert "id(sqm_cal_n) = -1;" in text                 # the minute that is running is discarded
     assert "id(sqm_cal_n) < 10" in text                  # ten minutes
     assert "id(sqm_cal_sum) / 10.0f" in text             # the mean
-    assert "mean > 120.0f" in text                       # the limit of the datasheet at 600 ms
-    assert "if (mean < 0.0f) mean = 0.0f;" in text
+    assert "mean > 120.0f || mean < -120.0f" in text     # the limit of the datasheet at 600 ms, both ways
+    assert "mean = 0.0f" not in text                     # a negative mean is stored as it is
     assert "std::isnan(x)" in text                       # a saturated minute fails
-    assert "max_value: 1000" in text                     # the setting accepts what the rule can store
+    assert "min_value: -120" in text                     # the setting accepts what the rule can store
+    assert "max_value: 1000" in text
